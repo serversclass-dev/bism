@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'تعديل مستخدم' if action == 'edit' else 'مستخدم جديد' }} — BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('users.index') }}" style="color:var(--muted);">الحسابات</a> /
+  <strong>{{ 'تعديل مستخدم' if action == 'edit' else 'مستخدم جديد' }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('users.index') }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-x"/></svg>
+  إلغاء
+</a>
+{% endblock %}
+
+{% block content %}
+<div>
+
+  <section class="page-hero" style="margin-bottom:32px;">
+    <h1>{{ 'تعديل بيانات المستخدم' if action == 'edit' else 'إضافة مستخدم جديد' }}</h1>
+    <p>{{ 'قم بتحديث بيانات المستخدم وصلاحياته' if action == 'edit' else 'أدخل بيانات المستخدم الجديد وحدد صلاحياته' }}</p>
+  </section>
+
+  <div style="display:grid; grid-template-columns:1fr 280px; gap:20px; align-items:start; max-width:900px;">
+
+    <form method="POST" id="userForm">
+
+      <!-- Basic Info -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">البيانات الأساسية</div>
+
+        <div class="form-group">
+          <label class="form-label" for="name">الاسم الكامل <span style="color:var(--red);">*</span></label>
+          <input class="form-control" type="text" id="name" name="name"
+                 value="{{ user.name if user else '' }}"
+                 placeholder="أدخل الاسم الكامل" required oninput="updateAvatar()"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="username">اسم المستخدم <span style="color:var(--red);">*</span></label>
+          <input class="form-control" type="text" id="username" name="username"
+                 value="{{ user.username if user else '' }}"
+                 placeholder="username" required dir="ltr"/>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="email">البريد الإلكتروني <span style="color:var(--red);">*</span></label>
+          <input class="form-control" type="email" id="email" name="email"
+                 value="{{ user.email if user else '' }}"
+                 placeholder="example@company.com" required dir="ltr"/>
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">
+          كلمة المرور
+          {% if action == 'edit' %}
+          <span style="font-size:11px; color:var(--muted); font-weight:400;"> — اتركها فارغة للإبقاء على الحالية</span>
+          {% endif %}
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="password">
+              كلمة المرور {% if action != 'edit' %}<span style="color:var(--red);">*</span>{% endif %}
+            </label>
+            <input class="form-control" type="password" id="password" name="password"
+                   placeholder="••••••••" dir="ltr"
+                   {{ 'required' if action != 'edit' else '' }}
+                   oninput="checkStrength()"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="password2">تأكيد كلمة المرور</label>
+            <input class="form-control" type="password" id="password2"
+                   placeholder="••••••••" dir="ltr" oninput="checkMatch()"/>
+          </div>
+        </div>
+
+        <!-- Strength bar -->
+        <div style="margin-top:14px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+            <span style="font-size:11px; color:var(--muted);">قوة كلمة المرور</span>
+            <span style="font-size:11px; font-weight:600;" id="strengthLabel">—</span>
+          </div>
+          <div style="height:4px; background:var(--surface-2); border-radius:2px; overflow:hidden;">
+            <div id="strengthBar" style="height:100%; width:0%; background:var(--green); border-radius:2px; transition:.3s;"></div>
+          </div>
+        </div>
+        <div id="matchWarn" style="display:none; margin-top:10px; font-size:12px; color:var(--red);">
+          ⚠ كلمتا المرور غير متطابقتان
+        </div>
+      </div>
+
+      <!-- Permissions -->
+      <div class="card" style="margin-bottom:28px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:0;">الصلاحيات</div>
+          <div style="display:flex; gap:10px;">
+            <button type="button" onclick="toggleAllPerms(true)"
+              style="border:0; background:none; color:var(--blue); font-size:12px; cursor:pointer; font:inherit; font-weight:600;">
+              تحديد الكل
+            </button>
+            <span style="color:var(--line);">|</span>
+            <button type="button" onclick="toggleAllPerms(false)"
+              style="border:0; background:none; color:var(--muted); font-size:12px; cursor:pointer; font:inherit;">
+              إلغاء الكل
+            </button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;" id="permsGrid">
+          {% for perm in all_permissions %}
+          {% set checked = user and perm.key in (user.permissions or []) %}
+          <label class="perm-label" style="display:flex; align-items:center; gap:10px; padding:12px 14px;
+                 border:1px solid {{ 'var(--ink)' if checked else 'var(--line)' }};
+                 border-radius:6px; cursor:pointer; background:var(--paper); transition:all .15s;"
+                 onclick="highlightPerm(this)">
+            <input type="checkbox" name="permissions" value="{{ perm.key }}"
+                   {{ 'checked' if checked else '' }}
+                   style="width:15px; height:15px; accent-color:var(--ink); cursor:pointer; flex:0 0 15px;"/>
+            <span style="font-size:12px; font-weight:500; line-height:1.4;">{{ perm.label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+
+        <div style="margin-top:12px; padding:12px 14px; background:var(--surface); border-radius:6px;
+                    font-size:12px; color:var(--muted); display:flex; align-items:center; gap:8px;">
+          <svg class="icon small"><use href="#i-key"/></svg>
+          <span>المدير يملك جميع الصلاحيات تلقائياً — هذه الصلاحيات للمستخدمين العاديين فقط</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button type="submit" class="primary-button" style="min-width:160px;" onclick="return validateForm()">
+          <svg class="icon small"><use href="#i-check"/></svg>
+          {{ 'حفظ التعديلات' if action == 'edit' else 'إضافة المستخدم' }}
+        </button>
+        <a href="{{ url_for('users.index') }}" class="secondary-button">إلغاء</a>
+
+        {% if action == 'edit' and user and user.id != session.user.id and user.id != '1' %}
+        <form method="POST" action="{{ url_for('users.delete', id=user.id) }}"
+              onsubmit="return confirm('هل أنت متأكد من حذف هذا المستخدم؟');"
+              style="margin:0 auto 0 0;">
+          <button type="submit" class="danger-button">
+            <svg class="icon small"><use href="#i-trash"/></svg>
+            حذف المستخدم
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+    </form>
+
+    <!-- PREVIEW SIDEBAR -->
+    <div style="position:sticky; top:24px;">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">معاينة الحساب</div>
+
+        <div style="display:flex; flex-direction:column; align-items:center; padding:16px 0 20px;
+                    border-bottom:1px solid var(--line); margin-bottom:16px;">
+          <div id="previewAvatar" class="avatar"
+               style="width:58px; height:58px; font-size:18px; margin-bottom:12px;
+                      background:var(--ink); color:var(--lime);">
+            {{ user.name[:2] if user else '؟' }}
+          </div>
+          <div id="previewName" style="font-size:15px; font-weight:700; text-align:center;">
+            {{ user.name if user else 'اسم المستخدم' }}
+          </div>
+          <div id="previewEmail" style="font-size:11px; color:var(--muted); margin-top:4px;" dir="ltr">
+            {{ user.email if user else 'email@...' }}
+          </div>
+        </div>
+
+        <div style="font-size:12px; color:var(--muted); margin-bottom:8px; font-weight:600;">الصلاحيات المفعّلة</div>
+        <div id="permCount" style="font-size:22px; font-weight:800; color:var(--ink);">
+          {{ (user.permissions or []) | length if user else 0 }}
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">صلاحية من {{ all_permissions | length }}</div>
+
+        <div style="margin-top:12px; height:6px; background:var(--surface-2); border-radius:3px; overflow:hidden;">
+          <div id="permBar" style="height:100%; background:var(--ink); border-radius:3px; transition:.3s;
+               width:{{ ((user.permissions or []) | length / all_permissions | length * 100)|int if user and all_permissions else 0 }}%;"></div>
+        </div>
+      </div>
+
+      <!-- Permission key -->
+      <div style="padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--surface);">
+        <div style="font-size:11px; font-weight:700; color:var(--muted); margin-bottom:10px;">الصلاحيات المحددة</div>
+        <div id="permList" style="display:flex; flex-direction:column; gap:5px;">
+          {% if user and user.permissions %}
+            {% for perm in all_permissions %}
+              {% if perm.key in (user.permissions or []) %}
+              <div style="font-size:11px; color:var(--green); display:flex; align-items:center; gap:6px;">
+                <span>✓</span> {{ perm.label }}
+              </div>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <div style="font-size:11px; color:var(--muted);">لا صلاحيات محددة بعد</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Build permissions map for labels
+const PERM_LABELS = {
+  {% for perm in all_permissions %}
+  '{{ perm.key }}': '{{ perm.label }}',
+  {% endfor %}
+};
+const TOTAL_PERMS = {{ all_permissions | length }};
+
+function updateAvatar() {
+  const name = document.getElementById('name').value.trim();
+  const initials = name.slice(0,2) || '؟';
+  document.getElementById('previewAvatar').textContent = initials;
+  document.getElementById('previewName').textContent   = name || 'اسم المستخدم';
+}
+
+document.getElementById('email').addEventListener('input', function() {
+  document.getElementById('previewEmail').textContent = this.value || 'email@...';
+});
+
+function checkStrength() {
+  const pw  = document.getElementById('password').value;
+  const bar = document.getElementById('strengthBar');
+  const lbl = document.getElementById('strengthLabel');
+  let score = 0;
+  if (pw.length >= 6)  score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const lvls = [
+    {w:'0%',  c:'var(--red)',    t:'—'},
+    {w:'20%', c:'var(--red)',    t:'ضعيفة جداً'},
+    {w:'40%', c:'var(--orange)', t:'ضعيفة'},
+    {w:'65%', c:'var(--orange)', t:'متوسطة'},
+    {w:'85%', c:'var(--green)',  t:'جيدة'},
+    {w:'100%',c:'var(--green)',  t:'قوية جداً'},
+  ];
+  const lvl = lvls[Math.min(score, 5)];
+  bar.style.width      = pw ? lvl.w : '0%';
+  bar.style.background = lvl.c;
+  lbl.textContent      = pw ? lvl.t : '—';
+  lbl.style.color      = lvl.c;
+  checkMatch();
+}
+
+function checkMatch() {
+  const pw1  = document.getElementById('password').value;
+  const pw2  = document.getElementById('password2').value;
+  document.getElementById('matchWarn').style.display = (pw2 && pw1 !== pw2) ? 'block' : 'none';
+}
+
+function validateForm() {
+  const pw1 = document.getElementById('password').value;
+  const pw2 = document.getElementById('password2').value;
+  if (pw1 && pw1 !== pw2) { alert('كلمتا المرور غير متطابقتين'); return false; }
+  return true;
+}
+
+function highlightPerm(label) {
+  // called on label click — update after checkbox toggles
+  setTimeout(updatePermPreview, 10);
+}
+
+function toggleAllPerms(state) {
+  document.querySelectorAll('input[name="permissions"]').forEach(cb => {
+    cb.checked = state;
+    const lbl = cb.closest('label');
+    lbl.style.borderColor = state ? 'var(--ink)' : 'var(--line)';
+    lbl.style.background  = state ? 'rgba(16,20,24,.04)' : 'var(--paper)';
+  });
+  updatePermPreview();
+}
+
+function updatePermPreview() {
+  const checked = [...document.querySelectorAll('input[name="permissions"]:checked')];
+  const count   = checked.length;
+  document.getElementById('permCount').textContent = count;
+  document.getElementById('permBar').style.width   = (count / TOTAL_PERMS * 100) + '%';
+
+  // Update list
+  const listEl = document.getElementById('permList');
+  if (count === 0) {
+    listEl.innerHTML = '<div style="font-size:11px;color:var(--muted);">لا صلاحيات محددة بعد</div>';
+  } else {
+    listEl.innerHTML = checked.map(cb =>
+      `<div style="font-size:11px;color:var(--green);display:flex;align-items:center;gap:6px;">
+         <span>✓</span> ${PERM_LABELS[cb.value] || cb.value}
+       </div>`
+    ).join('');
+  }
+
+  // Update label borders
+  document.querySelectorAll('input[name="permissions"]').forEach(cb => {
+    const lbl = cb.closest('label');
+    lbl.style.borderColor = cb.checked ? 'var(--ink)' : 'var(--line)';
+    lbl.style.background  = cb.checked ? 'rgba(16,20,24,.04)' : 'var(--paper)';
+  });
+}
+
+// Init
+updatePermPreview();
+</script>
+{% endblock %}

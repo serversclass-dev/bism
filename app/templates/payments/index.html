@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}المدفوعات — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}النظام / <strong>المدفوعات</strong>{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('payments.add') }}" class="primary-button">
+  <svg class="icon small"><use href="#i-plus"/></svg>
+  <span class="button-text">دفعة جديدة</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:0;">
+    <h1>المدفوعات</h1>
+    <p>تسجيل ومتابعة دفعات العملاء والموردين</p>
+  </section>
+
+  <!-- METRICS -->
+  <section class="metrics" style="margin-bottom:0;">
+    <div class="metric">
+      <div class="metric-title">إجمالي الدفعات</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ payments | length }}</div>
+      </div>
+      <div class="metric-note">دفعة مسجلة في النظام</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">دفعات العملاء</div>
+      <div class="metric-row">
+        {% set client_payments = payments | selectattr('type', 'eq', 'client') | list %}
+        <div class="metric-number" style="color:var(--green);">
+          {{ "{:,.0f}".format(client_payments | sum(attribute='amount') | float) }}
+        </div>
+      </div>
+      <div class="metric-note">{{ currency }} — مستلم من العملاء</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">دفعات الموردين</div>
+      <div class="metric-row">
+        {% set supplier_payments = payments | selectattr('type', 'eq', 'supplier') | list %}
+        <div class="metric-number" style="color:var(--red);">
+          {{ "{:,.0f}".format(supplier_payments | sum(attribute='amount') | float) }}
+        </div>
+      </div>
+      <div class="metric-note">{{ currency }} — مدفوع للموردين</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">صافي التدفق النقدي</div>
+      {% set net = (client_payments | sum(attribute='amount') | float) - (supplier_payments | sum(attribute='amount') | float) %}
+      <div class="metric-row">
+        <div class="metric-number" style="color:{{ 'var(--green)' if net >= 0 else 'var(--red)' }};">
+          {{ "{:,.0f}".format(net) }}
+        </div>
+      </div>
+      <div class="metric-note">{{ currency }} — الفرق بين الوارد والصادر</div>
+    </div>
+  </section>
+
+  <!-- TABLE -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>سجل المدفوعات</h2>
+        <p>{{ payments | length }} دفعة مسجلة</p>
+      </div>
+      <div style="display:flex; gap:9px; align-items:center;">
+        <div style="display:flex; gap:3px; padding:3px; background:var(--surface-2); border-radius:4px;">
+          <button class="sf-btn active" data-filter="all"
+            style="border:0; padding:6px 11px; background:var(--paper); color:var(--ink);
+                   font:inherit; font-size:11px; font-weight:700; border-radius:3px; cursor:pointer;">
+            الكل
+          </button>
+          <button class="sf-btn" data-filter="client"
+            style="border:0; padding:6px 11px; background:transparent; color:var(--muted);
+                   font:inherit; font-size:11px; border-radius:3px; cursor:pointer;">
+            عملاء
+          </button>
+          <button class="sf-btn" data-filter="supplier"
+            style="border:0; padding:6px 11px; background:transparent; color:var(--muted);
+                   font:inherit; font-size:11px; border-radius:3px; cursor:pointer;">
+            موردون
+          </button>
+        </div>
+        <div style="position:relative;">
+          <svg class="icon small" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;">
+            <use href="#i-search"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="بحث..."
+            style="min-height:40px; padding:0 40px 0 14px; border:1px solid var(--line); border-radius:6px;
+                   background:var(--paper); font:inherit; font-size:13px; width:190px; color:var(--ink);"
+            oninput="applyFilters()"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      {% if payments %}
+      <table class="data-table" id="paymentsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>النوع</th>
+            <th>الجهة</th>
+            <th>المبلغ</th>
+            <th>طريقة الدفع</th>
+            <th>التاريخ</th>
+            <th>ملاحظات</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payments | sort(attribute='created_at', reverse=True) %}
+          <tr data-type="{{ p.type }}">
+            <td style="color:var(--muted); font-size:12px;">{{ loop.index }}</td>
+            <td>
+              {% if p.type == 'client' %}
+                <span class="badge badge-green">من عميل</span>
+              {% elif p.type == 'supplier' %}
+                <span class="badge badge-red">لمورد</span>
+              {% else %}
+                <span class="badge badge-muted">{{ p.type or '—' }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex; align-items:center; gap:9px;">
+                <div class="avatar" style="background:{{ 'var(--surface-2)' if p.type == 'client' else 'var(--ink-2)' }};
+                            color:{{ 'var(--ink)' if p.type == 'client' else 'var(--lime)' }};
+                            font-size:11px; width:30px; height:30px; flex:0 0 30px;">
+                  {{ p.entity_name[:1] if p.entity_name else '?' }}
+                </div>
+                <span style="font-size:13px; font-weight:600;">{{ p.entity_name or '—' }}</span>
+              </div>
+            </td>
+            <td class="number">
+              <span style="font-size:14px; font-weight:700;
+                           color:{{ 'var(--green)' if p.type == 'client' else 'var(--red)' }};">
+                {% if p.type == 'client' %}+{% else %}-{% endif %}{{ "{:,.2f}".format(p.amount | float) }} {{ currency }}
+              </span>
+            </td>
+            <td>
+              {% if p.method %}
+                <span class="badge badge-muted">{{ p.method }}</span>
+              {% else %}
+                <span style="color:var(--muted);">—</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--muted); font-size:12px; white-space:nowrap;">
+              {{ p.date or (p.created_at[:10] if p.created_at else '—') }}
+            </td>
+            <td style="color:var(--muted); font-size:12px; max-width:200px;">
+              <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                {{ p.notes or '—' }}
+              </div>
+            </td>
+            <td>
+              <div class="td-actions">
+                <form method="POST" action="{{ url_for('payments.delete', id=p.id) }}"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذه الدفعة؟');" style="margin:0;">
+                  <button type="submit" class="icon-button" title="حذف"
+                          style="border-color:rgba(200,77,58,.3); color:var(--red);">
+                    <svg class="icon small"><use href="#i-trash"/></svg>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <svg class="icon xlarge" style="margin:0 auto 16px; display:block;"><use href="#i-money"/></svg>
+        <h3>لا توجد دفعات بعد</h3>
+        <p>ابدأ بتسجيل أول دفعة</p>
+        <br>
+        <a href="{{ url_for('payments.add') }}" class="primary-button" style="display:inline-flex;">
+          <svg class="icon small"><use href="#i-plus"/></svg>
+          تسجيل دفعة
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<script>
+let activeFilter = 'all';
+
+document.querySelectorAll('.sf-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sf-btn').forEach(b => {
+      b.style.background = 'transparent';
+      b.style.color = 'var(--muted)';
+      b.style.fontWeight = '400';
+      b.classList.remove('active');
+    });
+    btn.style.background = 'var(--paper)';
+    btn.style.color = 'var(--ink)';
+    btn.style.fontWeight = '700';
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    applyFilters();
+  });
+});
+
+function applyFilters() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('#paymentsTable tbody tr').forEach(row => {
+    const matchQ = row.textContent.toLowerCase().includes(q);
+    const matchT = activeFilter === 'all' || row.dataset.type === activeFilter;
+    row.style.display = matchQ && matchT ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

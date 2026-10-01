@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <title>أمر شراء #{{ purchase.id }}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; }
+    .page { max-width: 820px; margin: 0 auto; padding: 30px; }
+
+    .bill-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2e7d32; padding-bottom: 18px; margin-bottom: 22px; }
+    .company-left { display: flex; align-items: center; gap: 16px; }
+    .company-left img { max-height: 75px; max-width: 150px; object-fit: contain; }
+    .company-left .logo-placeholder { width: 75px; height: 75px; border: 2px solid #2e7d32; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #2e7d32; font-size: 0.75rem; text-align: center; font-weight: bold; }
+    .company-name-block h2 { font-size: 1.4rem; color: #2e7d32; margin-bottom: 3px; }
+    .company-name-block p { font-size: 0.82rem; color: #555; margin: 1px 0; }
+    .bill-ref { text-align: left; }
+    .bill-ref h3 { font-size: 1.1rem; font-weight: bold; color: #2e7d32; margin-bottom: 6px; }
+    .bill-ref p { font-size: 0.82rem; color: #555; margin: 2px 0; }
+
+    .bill-title { text-align: center; margin: 18px 0 14px; }
+    .bill-title h3 { font-size: 1.2rem; color: #fff; background: #2e7d32; display: inline-block; padding: 6px 40px; border-radius: 4px; letter-spacing: 1px; }
+
+    .bill-meta { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+    .meta-box { background: #f5f7fa; border-right: 4px solid #2e7d32; border-radius: 4px; padding: 12px 16px; flex: 1; }
+    .meta-box p { margin: 4px 0; font-size: 0.88rem; }
+    .meta-box strong { color: #2e7d32; }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 0.88rem; }
+    thead tr { background: #2e7d32; color: #fff; }
+    thead th { padding: 10px 8px; text-align: center; font-weight: 600; }
+    tbody tr:nth-child(even) { background: #f5f7fa; }
+    tbody tr:nth-child(odd) { background: #fff; }
+    tbody td { padding: 9px 8px; text-align: center; border-bottom: 1px solid #e8e8e8; }
+    tfoot tr { background: #d8edd9; }
+    tfoot td { padding: 10px 8px; text-align: center; font-weight: bold; border-top: 2px solid #2e7d32; }
+
+    .totals-section { display: flex; justify-content: flex-start; margin-bottom: 24px; }
+    .totals-box { min-width: 300px; border: 1px solid #d0d0d0; border-radius: 6px; overflow: hidden; font-size: 0.9rem; }
+    .totals-box .t-row { display: flex; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid #ececec; }
+    .totals-box .t-row:last-child { background: #2e7d32; color: #fff; font-weight: bold; font-size: 1rem; border: none; }
+    .totals-box .t-label { color: #555; }
+    .totals-box .t-val { font-weight: bold; }
+
+    .paid-badge { display: inline-block; padding: 2px 12px; border-radius: 3px; font-weight: bold; font-size: 0.8rem; border: 1px solid; }
+    .paid-full { color: #2e7d32; border-color: #2e7d32; background: #e8f5e9; }
+    .paid-partial { color: #e65100; border-color: #e65100; background: #fff3e0; }
+
+    .bill-footer { border-top: 2px solid #2e7d32; padding-top: 18px; margin-top: 10px; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
+    .sig-box { text-align: center; min-width: 160px; }
+    .sig-line { border-top: 1px solid #888; margin-top: 45px; padding-top: 6px; font-size: 0.82rem; color: #555; }
+    .footer-note { text-align: center; color: #888; font-size: 0.78rem; margin-top: 18px; border-top: 1px solid #eee; padding-top: 10px; }
+
+    .print-controls { text-align: center; margin: 18px 0; padding: 14px; background: #f5f7fa; border-radius: 8px; border: 1px solid #ddd; }
+    .print-controls button { padding: 9px 28px; border: none; border-radius: 5px; font-size: 0.95rem; cursor: pointer; margin: 0 6px; font-family: inherit; }
+    .btn-print { background: #2e7d32; color: #fff; }
+    .btn-back { background: #555; color: #fff; }
+
+    @media print {
+      .print-controls { display: none; }
+      .page { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="print-controls">
+    <button class="btn-print" onclick="window.print()">طباعة الفاتورة</button>
+    <button class="btn-back" onclick="window.history.back()">رجوع</button>
+  </div>
+
+  <!-- Header -->
+  <div class="bill-header">
+    <div class="company-left">
+      {% if company.logo %}
+        <img src="{{ company.logo }}" alt="شعار الشركة"/>
+      {% else %}
+        <div class="logo-placeholder">شعار<br/>الشركة</div>
+      {% endif %}
+      <div class="company-name-block">
+        <h2>{{ company.name or 'اسم الشركة' }}</h2>
+        {% if company.address %}<p>{{ company.address }}</p>{% endif %}
+        {% if company.phone %}<p>هاتف: {{ company.phone }}</p>{% endif %}
+        {% if company.email %}<p>{{ company.email }}</p>{% endif %}
+        {% if company.tax_number %}<p>الرقم الضريبي: {{ company.tax_number }}</p>{% endif %}
+      </div>
+    </div>
+    <div class="bill-ref">
+      <h3>امر شراء</h3>
+      <p>رقم الوثيقة: <strong>PO-{{ '%05d'|format(purchase.id|int) }}</strong></p>
+      <p>تاريخ الاصدار: <strong id="print_date"></strong></p>
+      <p>تاريخ الشراء: <strong>{{ purchase.created_at[:10] }}</strong></p>
+    </div>
+  </div>
+
+  <!-- Title -->
+  <div class="bill-title">
+    <h3>امر شراء رقم {{ '%05d'|format(purchase.id|int) }}</h3>
+  </div>
+
+  <!-- Meta -->
+  <div class="bill-meta">
+    <div class="meta-box">
+      <p><strong>المورد:</strong> {{ purchase.supplier_name }}</p>
+      <p><strong>تاريخ الشراء:</strong> {{ purchase.created_at[:10] }}</p>
+      <p><strong>حالة الدفع:</strong>
+        {% if purchase.remaining|float <= 0 %}
+          <span class="paid-badge paid-full">مسدد بالكامل</span>
+        {% else %}
+          <span class="paid-badge paid-partial">دفع جزئي</span>
+        {% endif %}
+      </p>
+    </div>
+    <div class="meta-box">
+      <p><strong>رقم الوثيقة:</strong> PO-{{ '%05d'|format(purchase.id|int) }}</p>
+      <p><strong>تاريخ الطباعة:</strong> <span id="print_date2"></span></p>
+      {% if purchase.notes %}<p><strong>ملاحظات:</strong> {{ purchase.notes }}</p>{% endif %}
+    </div>
+  </div>
+
+  <!-- Table -->
+  <table>
+    <thead>
+      <tr>
+        <th>الرقم</th>
+        <th>المنتج</th>
+        <th>الكمية</th>
+        <th>سعر الوحدة</th>
+        <th>الاجمالي</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in purchase_items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td style="text-align:right; padding-right:12px">{{ item.product_name }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ "%.2f"|format(item.price|float) }} د.ج</td>
+        <td><strong>{{ "%.2f"|format(item.total|float) }} د.ج</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right; padding-right:16px">المجموع الكلي</td>
+        <td>{{ "%.2f"|format(purchase.total_amount|float) }} د.ج</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals-section">
+    <div class="totals-box">
+      <div class="t-row"><span class="t-label">اجمالي المبلغ</span><span class="t-val">{{ "%.2f"|format(purchase.total_amount|float) }} د.ج</span></div>
+      <div class="t-row"><span class="t-label">المبلغ المدفوع</span><span class="t-val">{{ "%.2f"|format(purchase.paid_amount|float) }} د.ج</span></div>
+      <div class="t-row"><span class="t-label">المبلغ المتبقي</span><span class="t-val">{{ "%.2f"|format(purchase.remaining|float) }} د.ج</span></div>
+      <div class="t-row"><span>الاجمالي المستحق</span><span>{{ "%.2f"|format(purchase.total_amount|float) }} د.ج</span></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="bill-footer">
+    <div class="signatures">
+      <div class="sig-box"><div class="sig-line">توقيع المورد</div></div>
+      <div class="sig-box"><div class="sig-line">توقيع المستلم</div></div>
+      <div class="sig-box"><div class="sig-line">ختم الشركة</div></div>
+    </div>
+    <div class="footer-note">
+      {{ company.name or '' }}
+      {% if company.phone %} &mdash; هاتف: {{ company.phone }}{% endif %}
+      {% if company.email %} &mdash; {{ company.email }}{% endif %}
+      {% if company.tax_number %} &mdash; الرقم الضريبي: {{ company.tax_number }}{% endif %}
+    </div>
+  </div>
+
+</div>
+<script>
+  const d = new Date().toLocaleDateString('ar-DZ');
+  document.getElementById('print_date').textContent = d;
+  document.getElementById('print_date2').textContent = d;
+</script>
+</body>
+</html>

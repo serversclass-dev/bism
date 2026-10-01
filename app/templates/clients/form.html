@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'تعديل عميل' if action == 'edit' else 'إضافة عميل' }} — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('clients.index') }}" style="color:var(--muted);">العملاء</a> /
+  <strong>{{ 'تعديل عميل' if action == 'edit' else 'عميل جديد' }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('clients.index') }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-x"/></svg>
+  إلغاء
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:32px;">
+    <h1>{{ 'تعديل بيانات العميل' if action == 'edit' else 'إضافة عميل جديد' }}</h1>
+    <p>{{ 'قم بتحديث بيانات العميل أدناه' if action == 'edit' else 'أدخل بيانات العميل الجديد' }}</p>
+  </section>
+
+  <form method="POST" style="max-width:680px;">
+
+    <!-- Basic Info Card -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">البيانات الأساسية</div>
+
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="name">اسم العميل <span style="color:var(--red);">*</span></label>
+          <input
+            class="form-control"
+            type="text"
+            id="name"
+            name="name"
+            value="{{ client.name if client else '' }}"
+            placeholder="أدخل اسم العميل"
+            required
+          />
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="type">نوع العميل</label>
+          <select class="form-control" id="type" name="type">
+            <option value="">— اختر النوع —</option>
+            {% set types = ['فرد', 'شركة', 'مؤسسة', 'جملة', 'تجزئة'] %}
+            {% for t in types %}
+            <option value="{{ t }}" {{ 'selected' if client and client.type == t else '' }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact Card -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">بيانات التواصل</div>
+
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="phone">رقم الهاتف</label>
+          <input
+            class="form-control"
+            type="text"
+            id="phone"
+            name="phone"
+            value="{{ client.phone if client else '' }}"
+            placeholder="05XXXXXXXX"
+            dir="ltr"
+          />
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="email">البريد الإلكتروني</label>
+          <input
+            class="form-control"
+            type="email"
+            id="email"
+            name="email"
+            value="{{ client.email if client else '' }}"
+            placeholder="example@email.com"
+            dir="ltr"
+          />
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:16px; margin-bottom:0;">
+        <label class="form-label" for="address">العنوان</label>
+        <input
+          class="form-control"
+          type="text"
+          id="address"
+          name="address"
+          value="{{ client.address if client else '' }}"
+          placeholder="المدينة، الحي، الشارع..."
+        />
+      </div>
+    </div>
+
+    <!-- Notes Card -->
+    <div class="card" style="margin-bottom:28px;">
+      <div class="card-title">ملاحظات</div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="notes">ملاحظات إضافية</label>
+        <textarea
+          class="form-control"
+          id="notes"
+          name="notes"
+          placeholder="أي ملاحظات خاصة بهذا العميل..."
+          style="min-height:100px;"
+        >{{ client.notes if client else '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; gap:12px; align-items:center;">
+      <button type="submit" class="primary-button" style="min-width:160px;">
+        <svg class="icon small"><use href="#i-check"/></svg>
+        {{ 'حفظ التعديلات' if action == 'edit' else 'إضافة العميل' }}
+      </button>
+      <a href="{{ url_for('clients.index') }}" class="secondary-button">إلغاء</a>
+
+      {% if action == 'edit' and client %}
+      <form method="POST" action="{{ url_for('clients.delete', id=client.id) }}"
+            onsubmit="return confirm('هل أنت متأكد من حذف هذا العميل؟ لا يمكن التراجع عن هذا الإجراء.');"
+            style="margin:0 auto 0 0;">
+        <button type="submit" class="danger-button">
+          <svg class="icon small"><use href="#i-trash"/></svg>
+          حذف العميل
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+  </form>
+</div>
+{% endblock %}

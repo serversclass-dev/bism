@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}العملاء — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}النظام / <strong>العملاء</strong>{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('clients.add') }}" class="primary-button">
+  <svg class="icon small"><use href="#i-plus"/></svg>
+  <span class="button-text">عميل جديد</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:0;">
+    <h1>العملاء</h1>
+    <p>إدارة بيانات العملاء ومتابعة أرصدتهم وطلباتهم</p>
+  </section>
+
+  <!-- METRICS -->
+  <section class="metrics" style="margin-bottom:0;">
+    <div class="metric">
+      <div class="metric-title">إجمالي العملاء</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ clients | length }}</div>
+      </div>
+      <div class="metric-note">عميل مسجل في النظام</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">إجمالي المديونية</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ "{:,.0f}".format(clients | sum(attribute='balance') | float) }}</div>
+        {% if clients | sum(attribute='balance') | float > 0 %}
+        <div class="metric-change red">{{ currency }}</div>
+        {% endif %}
+      </div>
+      <div class="metric-note">مجموع أرصدة العملاء</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">إجمالي المبيعات</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ "{:,.0f}".format(clients | sum(attribute='total_sales') | float) }}</div>
+      </div>
+      <div class="metric-note">{{ currency }} — مجموع مبيعات العملاء</div>
+    </div>
+  </section>
+
+  <!-- SEARCH + TABLE -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>قائمة العملاء</h2>
+        <p>{{ clients | length }} عميل مسجل</p>
+      </div>
+      <div style="display:flex; gap:9px; align-items:center;">
+        <div style="position:relative;">
+          <svg class="icon small" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;">
+            <use href="#i-search"/>
+          </svg>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="بحث عن عميل..."
+            style="min-height:40px; padding:0 40px 0 14px; border:1px solid var(--line); border-radius:6px;
+                   background:var(--paper); font:inherit; font-size:13px; width:220px; color:var(--ink);"
+            oninput="filterTable()"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      {% if clients %}
+      <table class="data-table" id="clientsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>اسم العميل</th>
+            <th>النوع</th>
+            <th>الهاتف</th>
+            <th>إجمالي المبيعات</th>
+            <th>الرصيد المستحق</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for client in clients %}
+          <tr>
+            <td style="color:var(--muted); font-size:12px;">{{ loop.index }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:11px;">
+                <div class="avatar" style="background:var(--surface-2); color:var(--ink); font-size:12px; width:34px; height:34px; flex:0 0 34px;">
+                  {{ client.name[:1] }}
+                </div>
+                <div>
+                  <div style="font-weight:600; font-size:13px;">{{ client.name }}</div>
+                  {% if client.email %}
+                  <div style="color:var(--muted); font-size:11px;" dir="ltr">{{ client.email }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td>
+              {% if client.type %}
+                <span class="badge badge-muted">{{ client.type }}</span>
+              {% else %}
+                <span style="color:var(--muted);">—</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--muted); font-size:12px;" dir="ltr">
+              {{ client.phone if client.phone else '—' }}
+            </td>
+            <td class="number" style="color:var(--green); font-weight:600;">
+              {{ "{:,.2f}".format(client.total_sales | float) }} {{ currency }}
+            </td>
+            <td class="number">
+              {% set bal = client.balance | float %}
+              {% if bal > 0 %}
+                <span style="color:var(--red); font-weight:700;">{{ "{:,.2f}".format(bal) }} {{ currency }}</span>
+              {% elif bal < 0 %}
+                <span style="color:var(--blue); font-weight:600;">{{ "{:,.2f}".format(bal) }} {{ currency }}</span>
+              {% else %}
+                <span style="color:var(--muted);">0.00 {{ currency }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="td-actions">
+                <a href="{{ url_for('clients.view', id=client.id) }}" class="icon-button" title="عرض">
+                  <svg class="icon small"><use href="#i-eye"/></svg>
+                </a>
+                <a href="{{ url_for('clients.edit', id=client.id) }}" class="icon-button" title="تعديل">
+                  <svg class="icon small"><use href="#i-edit"/></svg>
+                </a>
+                <form method="POST" action="{{ url_for('clients.delete', id=client.id) }}"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا العميل؟');" style="margin:0;">
+                  <button type="submit" class="icon-button" title="حذف"
+                          style="border-color:rgba(200,77,58,.3); color:var(--red);">
+                    <svg class="icon small"><use href="#i-trash"/></svg>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <svg class="icon xlarge" style="margin:0 auto 16px; display:block;"><use href="#i-users"/></svg>
+        <h3>لا يوجد عملاء بعد</h3>
+        <p>ابدأ بإضافة عميلك الأول</p>
+        <br>
+        <a href="{{ url_for('clients.add') }}" class="primary-button" style="display:inline-flex;">
+          <svg class="icon small"><use href="#i-plus"/></svg>
+          إضافة عميل
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<script>
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('#clientsTable tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

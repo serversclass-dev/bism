@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% set is_quote = order.get('order_type', 'sale') == 'quote' %}
+
+{% block title %}{{ 'عرض سعر' if is_quote else 'أمر بيع' }} #{{ order.id }} — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('orders.index') }}" style="color:var(--muted);">الطلبات</a> /
+  <strong>{{ 'عرض سعر' if is_quote else 'أمر بيع' }} #{{ order.id }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('orders.print_bill', id=order.id) }}" class="secondary-button" target="_blank">
+  <svg class="icon small"><use href="#i-print"/></svg>
+  {{ 'طباعة عرض السعر' if is_quote else 'طباعة الفاتورة' }}
+</a>
+{% if is_quote %}
+<form method="POST" action="{{ url_for('orders.convert_to_sale', id=order.id) }}"
+      onsubmit="return confirm('هل تريد تحويل عرض السعر إلى أمر بيع حقيقي؟ سيؤثر على المخزون ورصيد العميل.');"
+      style="margin:0;">
+  <button type="submit" class="primary-button">
+    <svg class="icon small"><use href="#i-check"/></svg>
+    <span class="button-text">تحويل لأمر بيع</span>
+  </button>
+</form>
+{% endif %}
+<form method="POST" action="{{ url_for('orders.delete', id=order.id) }}"
+      onsubmit="return confirm('هل أنت متأكد من حذف هذا الطلب؟');" style="margin:0;">
+  <button type="submit" class="danger-button">
+    <svg class="icon small"><use href="#i-trash"/></svg>
+    <span class="button-text">حذف</span>
+  </button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <!-- HERO -->
+  <section style="padding:36px 0 28px; border-bottom:1px solid var(--line); margin-bottom:28px;
+                  display:grid; grid-template-columns:1fr auto; gap:24px; align-items:center;">
+    <div>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        {% if is_quote %}
+          <span style="font-size:12px; font-weight:700; color:var(--blue);
+                       background:rgba(65,105,225,.1); padding:3px 10px; border-radius:20px;">
+            📄 طلب عرض سعر
+          </span>
+        {% else %}
+          <span style="font-size:12px; font-weight:700; color:var(--green);
+                       background:rgba(37,129,88,.1); padding:3px 10px; border-radius:20px;">
+            🛒 أمر بيع
+          </span>
+        {% endif %}
+      </div>
+      <h1 style="margin:0; font-size:34px; font-weight:700; letter-spacing:-0.04em;">
+        #{{ order.id }}
+      </h1>
+      <div style="margin-top:10px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="avatar" style="background:var(--surface-2); color:var(--ink); font-size:12px; width:28px; height:28px; flex:0 0 28px;">
+            {{ order.client_name[:1] }}
+          </div>
+          <span style="font-size:14px; font-weight:600;">{{ order.client_name }}</span>
+        </div>
+        <span style="color:var(--muted); font-size:12px;">{{ order.created_at[:10] if order.created_at else '—' }}</span>
+        {% if order.status == 'new' %}
+          <span class="badge badge-blue">جديد</span>
+        {% elif order.status == 'completed' %}
+          <span class="badge badge-green">مكتمل</span>
+        {% elif order.status == 'cancelled' %}
+          <span class="badge badge-red">ملغي</span>
+        {% else %}
+          <span class="badge badge-muted">{{ order.status }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Right highlight box -->
+    {% if is_quote %}
+    <div style="text-align:center; padding:20px 28px; border-right:4px solid var(--blue);
+                background:rgba(65,105,225,.05); border-radius:0 8px 8px 0;">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:6px;">إجمالي عرض السعر</div>
+      <div style="font-size:30px; font-weight:700; color:var(--blue);">
+        {{ "{:,.2f}".format(order.total_sell | float) }}
+      </div>
+      <div style="font-size:11px; color:var(--muted);">{{ currency }}</div>
+      <div style="margin-top:8px; font-size:10px; color:var(--muted); font-style:italic;">
+        غير ملزم — لأغراض العرض فقط
+      </div>
+    </div>
+    {% else %}
+    {% set profit = order.profit | float %}
+    <div style="text-align:center; padding:20px 28px; border-right:4px solid var(--lime);">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:6px;">الربح الصافي</div>
+      <div style="font-size:30px; font-weight:700; color:{{ 'var(--green)' if profit >= 0 else 'var(--red)' }};">
+        {{ "{:,.2f}".format(profit) }}
+      </div>
+      <div style="font-size:11px; color:var(--muted);">{{ currency }}</div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- QUOTE INFO BANNER -->
+  {% if is_quote %}
+  <div style="display:flex; align-items:center; gap:14px; padding:14px 18px; margin-bottom:24px;
+              background:rgba(65,105,225,.07); border:1px solid rgba(65,105,225,.2); border-radius:10px;">
+    <svg style="width:22px;height:22px;fill:none;stroke:var(--blue);stroke-width:2;flex:0 0 22px;" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <div>
+      <div style="font-size:13px; font-weight:700; color:var(--blue); margin-bottom:2px;">طلب عرض سعر — غير ملزم</div>
+      <div style="font-size:12px; color:var(--muted);">
+        هذا الطلب لم يؤثر على المخزون أو رصيد العميل. لتحويله لأمر بيع حقيقي اضغط على "تحويل لأمر بيع".
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- STATUS ACTIONS -->
+  <div style="display:flex; gap:8px; margin-bottom:28px; flex-wrap:wrap;">
+    <span style="font-size:12px; color:var(--muted); align-self:center; margin-left:6px;">تغيير الحالة:</span>
+    {% if order.status != 'completed' %}
+    <form method="POST" action="{{ url_for('orders.update_status', id=order.id, status='completed') }}" style="margin:0;">
+      <button type="submit" class="secondary-button" style="border-color:rgba(37,129,88,.4); color:var(--green);">
+        <svg class="icon small"><use href="#i-check"/></svg>
+        تعيين كمكتمل
+      </button>
+    </form>
+    {% endif %}
+    {% if order.status != 'cancelled' %}
+    <form method="POST" action="{{ url_for('orders.update_status', id=order.id, status='cancelled') }}" style="margin:0;">
+      <button type="submit" class="secondary-button" style="border-color:rgba(200,77,58,.4); color:var(--red);">
+        <svg class="icon small"><use href="#i-x"/></svg>
+        تعيين كملغي
+      </button>
+    </form>
+    {% endif %}
+    {% if order.status != 'new' %}
+    <form method="POST" action="{{ url_for('orders.update_status', id=order.id, status='new') }}" style="margin:0;">
+      <button type="submit" class="secondary-button">
+        إعادة تعيين كجديد
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- METRICS -->
+  <section class="metrics" style="margin-bottom:28px;">
+    <div class="metric">
+      <div class="metric-title">إجمالي التكلفة</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ "{:,.0f}".format(order.total_cost | float) }}</div>
+      </div>
+      <div class="metric-note">{{ currency }} — تكلفة البضاعة</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">إجمالي {{ 'عرض السعر' if is_quote else 'البيع' }}</div>
+      <div class="metric-row">
+        <div class="metric-number" style="{{ 'color:var(--blue);' if is_quote else '' }}">
+          {{ "{:,.0f}".format(order.total_sell | float) }}
+        </div>
+      </div>
+      <div class="metric-note">{{ currency }} — قيمة الفاتورة</div>
+    </div>
+    {% if not is_quote %}
+    {% set profit = order.profit | float %}
+    <div class="metric">
+      <div class="metric-title">الربح الصافي</div>
+      <div class="metric-row">
+        <div class="metric-number" style="color:var(--green);">{{ "{:,.0f}".format(profit) }}</div>
+      </div>
+      <div class="metric-note">{{ currency }} — صافي الربح</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">هامش الربح</div>
+      <div class="metric-row">
+        {% set sell = order.total_sell | float %}
+        {% set margin = (profit / sell * 100) if sell > 0 else 0 %}
+        <div class="metric-number" style="color:{{ 'var(--green)' if margin >= 0 else 'var(--red)' }};">
+          {{ "{:.1f}".format(margin) }}
+        </div>
+        <div class="metric-change">%</div>
+      </div>
+      <div class="metric-note">نسبة الربح من المبيعات</div>
+    </div>
+    {% else %}
+    <div class="metric">
+      <div class="metric-title">عدد الأصناف</div>
+      <div class="metric-row">
+        <div class="metric-number" style="color:var(--blue);">{{ order_items | length }}</div>
+      </div>
+      <div class="metric-note">صنف في هذا العرض</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">الحالة</div>
+      <div class="metric-row">
+        <div class="metric-number" style="font-size:14px; color:var(--muted);">
+          {{ 'غير ملزم' }}
+        </div>
+      </div>
+      <div class="metric-note">عرض سعر للعميل فقط</div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- ITEMS TABLE -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>تفاصيل المنتجات</h2>
+        <p>{{ order_items | length }} صنف في هذا {{ 'العرض' if is_quote else 'الطلب' }}</p>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المنتج</th>
+            <th>المصدر</th>
+            <th class="center">الكمية</th>
+            {% if not is_quote %}
+            <th>سعر الشراء</th>
+            {% endif %}
+            <th>سعر البيع</th>
+            {% if not is_quote %}
+            <th>إجمالي التكلفة</th>
+            {% endif %}
+            <th>إجمالي البيع</th>
+            {% if not is_quote %}
+            <th>الربح</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in order_items %}
+          {% set qty      = item.quantity | float %}
+          {% set buy      = item.purchase_price | float %}
+          {% set sell     = item.sell_price | float %}
+          {% set row_cost = qty * buy %}
+          {% set row_sell = qty * sell %}
+          {% set row_pft  = row_sell - row_cost %}
+          <tr>
+            <td style="color:var(--muted); font-size:12px;">{{ loop.index }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:32px; height:32px; border-radius:5px; background:var(--surface-2);
+                            display:grid; place-items:center; flex:0 0 32px;">
+                  <svg class="icon small" style="color:var(--muted);"><use href="#i-box"/></svg>
+                </div>
+                <span style="font-weight:600; font-size:13px;">{{ item.product_name or '—' }}</span>
+              </div>
+            </td>
+            <td>
+              {% if item.source == 'stock' %}
+                <span class="badge badge-blue">من المخزون</span>
+              {% else %}
+                <span class="badge badge-muted">من مورد</span>
+              {% endif %}
+            </td>
+            <td class="center" style="font-weight:600;">{{ "{:,.1f}".format(qty) }}</td>
+            {% if not is_quote %}
+            <td class="number" style="color:var(--muted);">{{ "{:,.2f}".format(buy) }} {{ currency }}</td>
+            {% endif %}
+            <td class="number" style="font-weight:600;">{{ "{:,.2f}".format(sell) }} {{ currency }}</td>
+            {% if not is_quote %}
+            <td class="number">{{ "{:,.2f}".format(row_cost) }} {{ currency }}</td>
+            {% endif %}
+            <td class="number" style="font-weight:600; {{ 'color:var(--blue);' if is_quote else '' }}">
+              {{ "{:,.2f}".format(row_sell) }} {{ currency }}
+            </td>
+            {% if not is_quote %}
+            <td class="number" style="color:{{ 'var(--green)' if row_pft >= 0 else 'var(--red)' }}; font-weight:700;">
+              {{ "{:,.2f}".format(row_pft) }} {{ currency }}
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--surface);">
+            <td colspan="{{ 3 if is_quote else 5 }}" style="padding:14px 10px; font-weight:700; font-size:13px;">
+              المجموع الكلي
+            </td>
+            {% if not is_quote %}
+            <td class="number" style="padding:14px 10px; font-weight:700;">
+              {{ "{:,.2f}".format(order.total_cost | float) }} {{ currency }}
+            </td>
+            {% endif %}
+            <td class="number" style="padding:14px 10px; font-weight:700; {{ 'color:var(--blue);' if is_quote else '' }}">
+              {{ "{:,.2f}".format(order.total_sell | float) }} {{ currency }}
+            </td>
+            {% if not is_quote %}
+            {% set profit = order.profit | float %}
+            <td class="number" style="padding:14px 10px; font-weight:700; color:var(--green);">
+              {{ "{:,.2f}".format(profit) }} {{ currency }}
+            </td>
+            {% endif %}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  {% if order.notes %}
+  <div class="card" style="margin-top:24px; max-width:600px;">
+    <div class="card-title">ملاحظات الطلب</div>
+    <p style="margin:0; color:var(--muted); font-size:13px; line-height:1.8;">{{ order.notes }}</p>
+  </div>
+  {% endif %}
+
+  <!-- BOTTOM ACTIONS -->
+  <div style="display:flex; gap:12px; margin-top:32px; padding-top:24px; border-top:1px solid var(--line); flex-wrap:wrap;">
+    <a href="{{ url_for('orders.print_bill', id=order.id) }}" class="primary-button" target="_blank"
+       {% if is_quote %}style="background:var(--blue); border-color:var(--blue);"{% endif %}>
+      <svg class="icon small"><use href="#i-print"/></svg>
+      {{ 'طباعة عرض السعر' if is_quote else 'طباعة الفاتورة' }}
+    </a>
+    {% if is_quote %}
+    <form method="POST" action="{{ url_for('orders.convert_to_sale', id=order.id) }}"
+          onsubmit="return confirm('هل تريد تحويل عرض السعر إلى أمر بيع حقيقي؟');" style="margin:0;">
+      <button type="submit" class="primary-button">
+        <svg class="icon small"><use href="#i-check"/></svg>
+        تحويل لأمر بيع
+      </button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('orders.index') }}" class="secondary-button">
+      العودة للقائمة
+    </a>
+  </div>
+
+</div>
+{% endblock %}

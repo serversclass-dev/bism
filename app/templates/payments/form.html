@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}دفعة جديدة — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('payments.index') }}" style="color:var(--muted);">المدفوعات</a> /
+  <strong>دفعة جديدة</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('payments.index') }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-x"/></svg>
+  إلغاء
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:32px;">
+    <h1>تسجيل دفعة جديدة</h1>
+    <p>سجل دفعة واردة من عميل أو صادرة لمورد</p>
+  </section>
+
+  <div style="display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:start; max-width:900px;">
+
+    <form method="POST" id="paymentForm">
+
+      <!-- Type selector -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">نوع الدفعة</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <label id="lbl-client" style="cursor:pointer;">
+            <input type="radio" name="type" value="client" id="type-client"
+                   style="display:none;" onchange="onTypeChange()" checked/>
+            <div id="card-client" style="padding:18px; border-radius:8px; border:2px solid var(--ink);
+                 background:var(--ink); color:white; text-align:center; transition:all .15s;">
+              <svg class="icon" style="stroke:var(--lime); margin-bottom:8px; display:block; margin-left:auto; margin-right:auto;">
+                <use href="#i-users"/>
+              </svg>
+              <div style="font-weight:700; font-size:14px;">من عميل</div>
+              <div style="font-size:11px; color:#6b7470; margin-top:3px;">دفعة واردة</div>
+            </div>
+          </label>
+          <label id="lbl-supplier" style="cursor:pointer;">
+            <input type="radio" name="type" value="supplier" id="type-supplier"
+                   style="display:none;" onchange="onTypeChange()"/>
+            <div id="card-supplier" style="padding:18px; border-radius:8px; border:2px solid var(--line);
+                 background:var(--paper); color:var(--ink); text-align:center; transition:all .15s;">
+              <svg class="icon" style="margin-bottom:8px; display:block; margin-left:auto; margin-right:auto;">
+                <use href="#i-truck"/>
+              </svg>
+              <div style="font-weight:700; font-size:14px;">لمورد</div>
+              <div style="font-size:11px; color:var(--muted); margin-top:3px;">دفعة صادرة</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Entity selector -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title" id="entityCardTitle">بيانات العميل</div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="entity_id" id="entityLabel">العميل <span style="color:var(--red);">*</span></label>
+
+          <!-- Clients dropdown -->
+          <select class="form-control" id="entity_id_client" name="entity_id"
+                  onchange="onEntityChange()" required>
+            <option value="">— اختر العميل —</option>
+            {% for c in clients %}
+            <option value="{{ c.id }}"
+                    data-balance="{{ c.balance }}"
+                    data-name="{{ c.name }}">
+              {{ c.name }}
+              {% if c.balance | float > 0 %}
+                — مديونية: {{ "{:,.0f}".format(c.balance | float) }} {{ currency }}
+              {% endif %}
+            </option>
+            {% endfor %}
+          </select>
+
+          <!-- Suppliers dropdown (hidden by default) -->
+          <select class="form-control" id="entity_id_supplier" name="entity_id_sup"
+                  onchange="onEntityChange()" style="display:none;">
+            <option value="">— اختر المورد —</option>
+            {% for s in suppliers %}
+            <option value="{{ s.id }}"
+                    data-balance="{{ s.balance }}"
+                    data-name="{{ s.name }}">
+              {{ s.name }}
+              {% if s.balance | float > 0 %}
+                — مديونية: {{ "{:,.0f}".format(s.balance | float) }} {{ currency }}
+              {% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Balance display -->
+        <div id="balanceDisplay" style="display:none; margin-top:14px; padding:13px 16px;
+             border-radius:6px; background:var(--surface);
+             display:none; align-items:center; justify-content:space-between;">
+          <span style="font-size:12px; color:var(--muted);" id="balanceLabel">الرصيد المستحق</span>
+          <span style="font-size:16px; font-weight:700;" id="balanceValue">—</span>
+        </div>
+      </div>
+
+      <!-- Amount & Method -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">المبلغ وطريقة الدفع</div>
+        <div class="form-grid-2">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="amount">المبلغ ({{ currency }}) <span style="color:var(--red);">*</span></label>
+            <input class="form-control" type="number" id="amount" name="amount"
+                   placeholder="0.00" step="0.01" min="0" required oninput="updatePreview()"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="method">طريقة الدفع</label>
+            <select class="form-control" id="method" name="method">
+              <option value="">— اختر الطريقة —</option>
+              {% for m in ['نقداً', 'تحويل بنكي', 'شيك', 'بطاقة', 'أخرى'] %}
+              <option value="{{ m }}">{{ m }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Date & Notes -->
+      <div class="card" style="margin-bottom:28px;">
+        <div class="card-title">التاريخ والملاحظات</div>
+        <div class="form-group">
+          <label class="form-label" for="date">تاريخ الدفعة</label>
+          <input class="form-control" type="date" id="date" name="date"/>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="notes">ملاحظات</label>
+          <textarea class="form-control" id="notes" name="notes"
+                    placeholder="وصف أو ملاحظات خاصة بهذه الدفعة..."
+                    style="min-height:80px;"></textarea>
+        </div>
+      </div>
+
+      <button type="submit" class="primary-button" style="min-height:48px; min-width:180px; font-size:15px;">
+        <svg class="icon small"><use href="#i-check"/></svg>
+        تسجيل الدفعة
+      </button>
+
+    </form>
+
+    <!-- PREVIEW CARD -->
+    <div style="position:sticky; top:24px;">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">معاينة الدفعة</div>
+
+        <div id="previewType" style="display:flex; align-items:center; gap:10px; margin-bottom:18px;
+             padding:14px; border-radius:6px; background:var(--ink);">
+          <svg class="icon" style="stroke:var(--lime); flex:0 0 24px;"><use href="#i-users"/></svg>
+          <div>
+            <div style="color:white; font-size:12px; font-weight:700;">دفعة واردة</div>
+            <div style="color:#6b7470; font-size:10px; margin-top:2px;">من عميل</div>
+          </div>
+        </div>
+
+        <div style="display:grid; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden; margin-bottom:14px;">
+          <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+            <span style="font-size:11px; color:var(--muted);">الجهة</span>
+            <span id="pvEntity" style="font-size:13px; font-weight:600;">—</span>
+          </div>
+          <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+            <span style="font-size:11px; color:var(--muted);">طريقة الدفع</span>
+            <span id="pvMethod" style="font-size:13px;">—</span>
+          </div>
+          <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+            <span style="font-size:11px; color:var(--muted);">التاريخ</span>
+            <span id="pvDate" style="font-size:13px;">—</span>
+          </div>
+        </div>
+
+        <div style="padding:20px; background:var(--ink); border-radius:6px; text-align:center;">
+          <div style="font-size:10px; color:#6b7470; margin-bottom:6px;">المبلغ</div>
+          <div id="pvAmount" style="font-size:32px; font-weight:800; color:var(--lime);">0.00</div>
+          <div style="font-size:11px; color:#6b7470; margin-top:4px;">{{ currency }}</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Set today's date
+document.getElementById('date').valueAsDate = new Date();
+
+function onTypeChange() {
+  const isClient = document.getElementById('type-client').checked;
+
+  // Card styles
+  const cc = document.getElementById('card-client');
+  const cs = document.getElementById('card-supplier');
+  if (isClient) {
+    cc.style.cssText = 'padding:18px; border-radius:8px; border:2px solid var(--ink); background:var(--ink); color:white; text-align:center; transition:all .15s;';
+    cc.querySelector('svg').style.stroke = 'var(--lime)';
+    cc.querySelector('div:nth-child(3)').style.color = '#6b7470';
+    cs.style.cssText = 'padding:18px; border-radius:8px; border:2px solid var(--line); background:var(--paper); color:var(--ink); text-align:center; transition:all .15s;';
+    cs.querySelector('svg').style.stroke = 'currentColor';
+    cs.querySelector('div:nth-child(3)').style.color = 'var(--muted)';
+  } else {
+    cs.style.cssText = 'padding:18px; border-radius:8px; border:2px solid var(--ink); background:var(--ink); color:white; text-align:center; transition:all .15s;';
+    cs.querySelector('svg').style.stroke = 'var(--lime)';
+    cs.querySelector('div:nth-child(3)').style.color = '#6b7470';
+    cc.style.cssText = 'padding:18px; border-radius:8px; border:2px solid var(--line); background:var(--paper); color:var(--ink); text-align:center; transition:all .15s;';
+    cc.querySelector('svg').style.stroke = 'currentColor';
+    cc.querySelector('div:nth-child(3)').style.color = 'var(--muted)';
+  }
+
+  // Show correct dropdown
+  document.getElementById('entity_id_client').style.display   = isClient ? '' : 'none';
+  document.getElementById('entity_id_supplier').style.display = isClient ? 'none' : '';
+  document.getElementById('entity_id_client').required   = isClient;
+  document.getElementById('entity_id_supplier').required = !isClient;
+
+  // Update card titles
+  document.getElementById('entityCardTitle').textContent = isClient ? 'بيانات العميل' : 'بيانات المورد';
+  document.getElementById('entityLabel').innerHTML = (isClient ? 'العميل' : 'المورد') + ' <span style="color:var(--red);">*</span>';
+
+  // Update preview
+  const pt = document.getElementById('previewType');
+  pt.querySelector('div div:first-child').textContent = isClient ? 'دفعة واردة' : 'دفعة صادرة';
+  pt.querySelector('div div:last-child').textContent  = isClient ? 'من عميل' : 'لمورد';
+  pt.querySelector('svg use').setAttribute('href', isClient ? '#i-users' : '#i-truck');
+
+  document.getElementById('pvEntity').textContent = '—';
+  document.getElementById('balanceDisplay').style.display = 'none';
+  updatePreview();
+}
+
+function onEntityChange() {
+  const isClient = document.getElementById('type-client').checked;
+  const sel = document.getElementById(isClient ? 'entity_id_client' : 'entity_id_supplier');
+  const opt = sel.options[sel.selectedIndex];
+  const name = opt?.dataset?.name || '';
+  const balance = parseFloat(opt?.dataset?.balance || 0);
+
+  document.getElementById('pvEntity').textContent = name || '—';
+
+  const bd = document.getElementById('balanceDisplay');
+  if (opt?.value && balance > 0) {
+    bd.style.display = 'flex';
+    document.getElementById('balanceValue').textContent = balance.toLocaleString('ar-DZ', {minimumFractionDigits:2}) + ' {{ currency }}';
+    document.getElementById('balanceValue').style.color = 'var(--red)';
+  } else {
+    bd.style.display = 'none';
+  }
+}
+
+function updatePreview() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const method = document.getElementById('method').value;
+  const date   = document.getElementById('date').value;
+
+  document.getElementById('pvAmount').textContent = amount.toLocaleString('ar-DZ', {minimumFractionDigits:2});
+  document.getElementById('pvMethod').textContent = method || '—';
+  document.getElementById('pvDate').textContent   = date || '—';
+}
+
+// Listen to method/date changes
+document.getElementById('method').addEventListener('change', updatePreview);
+document.getElementById('date').addEventListener('change', updatePreview);
+
+// Fix form submission — merge supplier select name to entity_id
+document.getElementById('paymentForm').addEventListener('submit', function() {
+  const isClient = document.getElementById('type-client').checked;
+  if (!isClient) {
+    const supSel  = document.getElementById('entity_id_supplier');
+    const cliSel  = document.getElementById('entity_id_client');
+    cliSel.name   = '';
+    supSel.name   = 'entity_id';
+  }
+});
+</script>
+{% endblock %}

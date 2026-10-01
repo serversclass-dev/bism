@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}المخزون — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}النظام / <strong>المخزون</strong>{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('inventory.add') }}" class="primary-button">
+  <svg class="icon small"><use href="#i-plus"/></svg>
+  <span class="button-text">إضافة للمخزون</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:0;">
+    <h1>المخزون</h1>
+    <p>متابعة الكميات المتاحة والمباعة لكل منتج</p>
+  </section>
+
+  <!-- METRICS -->
+  <section class="metrics" style="margin-bottom:0;">
+    <div class="metric">
+      <div class="metric-title">أصناف في المخزون</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ inventory | length }}</div>
+      </div>
+      <div class="metric-note">صنف مسجل حالياً</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">إجمالي الكميات المتبقية</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ "{:,.0f}".format(inventory | sum(attribute='quantity_remaining') | float) }}</div>
+      </div>
+      <div class="metric-note">وحدة متاحة في المخزون</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">إجمالي الكميات المباعة</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ "{:,.0f}".format(inventory | sum(attribute='quantity_sold') | float) }}</div>
+      </div>
+      <div class="metric-note">وحدة تم بيعها</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">أصناف منخفضة</div>
+      <div class="metric-row">
+        {% set low = [] %}{% for i in inventory %}{% if i.get('quantity_remaining', 0) | float < 10 %}{% set low = low + [i] %}{% endif %}{% endfor %}
+        <div class="metric-number" style="color:{{ 'var(--red)' if low | length > 0 else 'var(--ink)' }};">
+          {{ low | length }}
+        </div>
+        {% if low | length > 0 %}
+        <div class="metric-change red">تنبيه</div>
+        {% endif %}
+      </div>
+      <div class="metric-note">أقل من 10 وحدات</div>
+    </div>
+  </section>
+
+  <!-- TABLE -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>تفاصيل المخزون</h2>
+        <p>{{ inventory | length }} صنف مسجل</p>
+      </div>
+      <div style="display:flex; gap:9px; align-items:center;">
+        <!-- Filter buttons -->
+        <div style="display:flex; gap:3px; padding:3px; background:var(--surface-2); border-radius:4px;">
+          <button class="view-filter-btn active" onclick="filterStatus('all', this)"
+            style="border:0; padding:6px 12px; background:var(--paper); color:var(--ink);
+                   font:inherit; font-size:11px; font-weight:700; border-radius:3px; cursor:pointer;">
+            الكل
+          </button>
+          <button class="view-filter-btn" onclick="filterStatus('low', this)"
+            style="border:0; padding:6px 12px; background:transparent; color:var(--muted);
+                   font:inherit; font-size:11px; border-radius:3px; cursor:pointer;">
+            منخفض
+          </button>
+          <button class="view-filter-btn" onclick="filterStatus('ok', this)"
+            style="border:0; padding:6px 12px; background:transparent; color:var(--muted);
+                   font:inherit; font-size:11px; border-radius:3px; cursor:pointer;">
+            متوفر
+          </button>
+        </div>
+        <div style="position:relative;">
+          <svg class="icon small" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;">
+            <use href="#i-search"/>
+          </svg>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="بحث..."
+            style="min-height:40px; padding:0 40px 0 14px; border:1px solid var(--line); border-radius:6px;
+                   background:var(--paper); font:inherit; font-size:13px; width:190px; color:var(--ink);"
+            oninput="filterTable()"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      {% if inventory %}
+      <table class="data-table" id="inventoryTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المنتج</th>
+            <th>المورد</th>
+            <th>الكمية المشتراة</th>
+            <th>الكمية المباعة</th>
+            <th>المتبقي</th>
+            <th>سعر الشراء</th>
+            <th>الحالة</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in inventory %}
+          {% set remaining = item.get('quantity_remaining', 0) | float %}
+          {% set purchased = item.get('quantity_purchased', 0) | float %}
+          {% set pct = (remaining / purchased * 100) if purchased > 0 else 0 %}
+          <tr data-status="{{ 'low' if remaining < 10 else 'ok' }}">
+            <td style="color:var(--muted); font-size:12px;">{{ loop.index }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:34px; height:34px; border-radius:6px; background:var(--surface-2);
+                            display:grid; place-items:center; flex:0 0 34px;">
+                  <svg class="icon small" style="color:var(--muted);"><use href="#i-box"/></svg>
+                </div>
+                <div style="font-weight:600; font-size:13px;">{{ item.product_name or '—' }}</div>
+              </div>
+            </td>
+            <td style="color:var(--muted); font-size:12px;">{{ item.supplier_name or '—' }}</td>
+            <td class="center" style="font-weight:600;">{{ "{:,.1f}".format(purchased) }}</td>
+            <td class="center" style="color:var(--muted);">{{ "{:,.1f}".format(item.get('quantity_sold', 0) | float) }}</td>
+            <td class="center">
+              <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                <span style="font-weight:700; font-size:14px;
+                             color:{{ 'var(--red)' if remaining < 10 else 'var(--green)' }};">
+                  {{ "{:,.1f}".format(remaining) }}
+                </span>
+                <!-- mini progress bar -->
+                <div style="width:60px; height:4px; background:var(--surface-2); border-radius:2px; overflow:hidden;">
+                  <div style="height:100%; width:{{ [pct, 100] | min }}%;
+                              background:{{ 'var(--red)' if pct < 20 else 'var(--green)' }};
+                              border-radius:2px;"></div>
+                </div>
+              </div>
+            </td>
+            <td class="number">{{ "{:,.2f}".format(item.get('purchase_price', 0) | float) }} {{ currency }}</td>
+            <td>
+              {% if remaining <= 0 %}
+                <span class="badge badge-red">نفد</span>
+              {% elif remaining < 10 %}
+                <span class="badge badge-orange">منخفض</span>
+              {% else %}
+                <span class="badge badge-green">متوفر</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="td-actions">
+                <a href="{{ url_for('inventory.edit', id=item.id) }}" class="icon-button" title="تعديل">
+                  <svg class="icon small"><use href="#i-edit"/></svg>
+                </a>
+                <form method="POST" action="{{ url_for('inventory.delete', id=item.id) }}"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا السجل؟');" style="margin:0;">
+                  <button type="submit" class="icon-button" title="حذف"
+                          style="border-color:rgba(200,77,58,.3); color:var(--red);">
+                    <svg class="icon small"><use href="#i-trash"/></svg>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <svg class="icon xlarge" style="margin:0 auto 16px; display:block;"><use href="#i-warehouse"/></svg>
+        <h3>المخزون فارغ</h3>
+        <p>أضف منتجات للمخزون عبر تسجيل المشتريات</p>
+        <br>
+        <a href="{{ url_for('purchases.add') }}" class="primary-button" style="display:inline-flex;">
+          <svg class="icon small"><use href="#i-plus"/></svg>
+          تسجيل شراء
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<script>
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const activeStatus = document.querySelector('.view-filter-btn.active')?.dataset?.status || 'all';
+  document.querySelectorAll('#inventoryTable tbody tr').forEach(row => {
+    const matchQ = row.textContent.toLowerCase().includes(q);
+    const matchS = activeStatus === 'all' || row.dataset.status === activeStatus;
+    row.style.display = matchQ && matchS ? '' : 'none';
+  });
+}
+
+function filterStatus(status, btn) {
+  document.querySelectorAll('.view-filter-btn').forEach(b => {
+    b.style.background = 'transparent';
+    b.style.color = 'var(--muted)';
+    b.style.fontWeight = '400';
+    b.classList.remove('active');
+    delete b.dataset.status;
+  });
+  btn.style.background = 'var(--paper)';
+  btn.style.color = 'var(--ink)';
+  btn.style.fontWeight = '700';
+  btn.classList.add('active');
+  btn.dataset.status = status;
+  filterTable();
+}
+</script>
+{% endblock %}

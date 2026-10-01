@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% set is_quote = order.get('order_type', 'sale') == 'quote' %}
+  <title>{{ 'عرض سعر' if is_quote else 'فاتورة بيع' }} — #{{ order.id }}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --navy:        #132238;
+      --navy-soft:   #26364b;
+      --green:       #176b5b;
+      --green-light: #e8f2ef;
+      --blue:        #2a52be;
+      --blue-light:  #eef1fc;
+      --gold:        #c7a45d;
+      --paper:       #ffffff;
+      --paper-soft:  #f5f6f2;
+      --ink:         #18212b;
+      --muted:       #68737d;
+      --line:        #dce1df;
+      --shadow:      0 18px 45px rgba(19,34,56,.09);
+      --accent:      {% if order.get('order_type','sale') == 'quote' %}#2a52be{% else %}#176b5b{% endif %};
+      --accent-light:{% if order.get('order_type','sale') == 'quote' %}#eef1fc{% else %}#e8f2ef{% endif %};
+    }
+    * { box-sizing: border-box; }
+    html { background: #e9ece9; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: radial-gradient(circle at 15% 10%, rgba(23,107,91,.08), transparent 25%), #e9ece9;
+      font-family: "Cairo", Tahoma, Arial, sans-serif;
+      line-height: 1.7;
+    }
+    button { font: inherit; cursor: pointer; }
+
+    /* ── Action Bar ── */
+    .print-actions {
+      width: min(210mm, calc(100% - 32px));
+      margin: 28px auto 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .print-button {
+      border: 0; padding: 11px 26px;
+      color: #fff; background: var(--navy);
+      font-weight: 700; border-radius: 6px; font-size: 13px;
+      display: inline-flex; align-items: center; gap: 7px;
+      transition: background .15s, transform .1s;
+      box-shadow: 0 2px 8px rgba(19,34,56,.15);
+    }
+    .print-button:hover         { background: var(--accent); transform: translateY(-1px); }
+    .print-button.accent        { background: var(--accent); }
+    .print-button.accent:hover  { background: var(--navy); }
+    .print-button.outline {
+      background: transparent; border: 1.5px solid var(--navy);
+      color: var(--navy); box-shadow: none;
+    }
+    .print-button.outline:hover { background: var(--navy); color: white; transform: translateY(-1px); }
+
+    /* Toggle */
+    .toggle-wrap {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--paper); border: 1.5px solid var(--line);
+      border-radius: 8px; padding: 8px 16px;
+      box-shadow: 0 2px 8px rgba(19,34,56,.07);
+      cursor: pointer; user-select: none; transition: border-color .2s;
+    }
+    .toggle-wrap:hover  { border-color: var(--gold); }
+    .toggle-wrap.on     { border-color: var(--gold); background: #fdf8ef; }
+    .toggle-label       { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; transition: color .2s; }
+    .toggle-wrap.on .toggle-label { color: var(--navy); }
+    .switch             { position: relative; width: 40px; height: 22px; flex: 0 0 40px; }
+    .switch input       { opacity: 0; width: 0; height: 0; }
+    .slider             { position: absolute; inset: 0; background: #cdd5db; border-radius: 22px; transition: background .25s; }
+    .slider::before     { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px;
+                          background: white; border-radius: 50%; transition: transform .25s; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+    input:checked + .slider             { background: var(--gold); }
+    input:checked + .slider::before     { transform: translateX(18px); }
+
+    /* ── Quote type chip ── */
+    .doc-type-chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 800;
+      letter-spacing: .03em; margin-bottom: 6px;
+    }
+    .chip-quote { background: var(--blue-light); color: var(--blue); }
+    .chip-sale  { background: var(--green-light); color: var(--green); }
+
+    /* ── Page ── */
+    .page {
+      width: min(210mm, calc(100% - 32px));
+      min-height: 297mm;
+      margin: 20px auto 32px;
+      padding: 15mm;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .page::before {
+      content: ""; position: absolute; top: 0; right: 0;
+      width: 125px; height: 125px;
+      background: var(--accent);
+      clip-path: polygon(100% 0, 100% 100%, 0 0);
+      opacity: .96;
+    }
+    .page::after {
+      content: ""; position: absolute; top: 0; right: 0;
+      width: 76px; height: 76px;
+      background: var(--gold);
+      clip-path: polygon(100% 0, 100% 100%, 0 0);
+      opacity: .9;
+    }
+
+    /* ── Quote watermark ── */
+    .quote-watermark {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 90px; font-weight: 900; color: rgba(42,82,190,.04);
+      white-space: nowrap; pointer-events: none; user-select: none; z-index: 0;
+    }
+
+    .invoice-header {
+      display: grid; grid-template-columns: 1fr auto;
+      gap: 30px; align-items: start;
+      padding-bottom: 24px; border-bottom: 2px solid var(--navy);
+      position: relative; z-index: 1;
+    }
+    .brand         { display: flex; align-items: center; gap: 14px; }
+    .brand-mark    { width: 56px; height: 56px; flex: 0 0 56px; background: var(--navy);
+                     clip-path: polygon(50% 0, 100% 100%, 0 100%); position: relative; overflow: hidden; }
+    .brand-mark::before { content: ""; position: absolute; width: 22px; height: 22px;
+                          background: var(--accent); left: 17px; bottom: 8px;
+                          clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+    .brand-mark::after  { content: ""; position: absolute; width: 11px; height: 11px;
+                          background: var(--gold); left: 22px; bottom: 7px;
+                          clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+    .company-name  { margin: 0; color: var(--navy); font-size: clamp(14px,2vw,20px); font-weight: 800; line-height: 1.3; }
+    .company-sub   { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .contact       { margin-top: 7px; color: var(--muted); font-size: 10px; line-height: 1.9; }
+    .invoice-title { text-align: left; padding-top: 4px; }
+    .invoice-title h1 { margin: 0; color: var(--navy); font-size: 28px; font-weight: 800; letter-spacing: -.5px; }
+    .invoice-number   { display: inline-block; margin-top: 6px; color: var(--accent); font-size: 13px; font-weight: 700; direction: ltr; }
+    .date-line        { margin-top: 2px; color: var(--muted); font-size: 11px; }
+
+    /* Quote validity note */
+    .validity-note {
+      margin-top: 8px; padding: 6px 12px; background: var(--accent-light);
+      border-radius: 5px; font-size: 10px; color: var(--accent); font-weight: 700;
+    }
+
+    .info-grid    { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; margin: 22px 0; position: relative; z-index: 1; }
+    .info-box     { padding: 15px 17px; background: var(--paper-soft); border-right: 4px solid var(--accent); }
+    .info-box h2  { margin: 0 0 9px; color: var(--navy); font-size: 13px; font-weight: 800; }
+    .info-row     { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 3px 0; font-size: 11px; }
+    .info-row span:first-child { color: var(--muted); }
+    .info-row strong { color: var(--ink); font-weight: 700; text-align: left; }
+    .status-badge   { display: inline-flex; padding: 3px 10px; color: var(--green); background: var(--green-light); font-size: 10px; font-weight: 700; border-radius: 20px; }
+    .status-badge.cancelled { color: #c84d3a; background: #fff0ee; }
+    .status-badge.new       { color: #4169e1; background: #eef1fc; }
+    .status-badge.quote-type { color: var(--blue); background: var(--blue-light); }
+
+    .section-heading   { margin: 26px 0 10px; display: flex; justify-content: space-between; align-items: end; gap: 20px; position: relative; z-index: 1; }
+    .section-heading h2 { margin: 0; color: var(--navy); font-size: 16px; font-weight: 800; }
+    .section-heading p  { margin: 0; color: var(--muted); font-size: 10px; }
+
+    .table-wrap { overflow-x: auto; position: relative; z-index: 1; }
+    table           { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    thead th        { padding: 11px 8px; color: #fff; background: var(--navy); font-weight: 700; white-space: nowrap; text-align: center; }
+    thead th:first-child { border-radius: 0 5px 5px 0; }
+    thead th:last-child  { border-radius: 5px 0 0 5px; }
+    tbody td        { padding: 13px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+    tbody tr:hover  { background: #fafcfb; }
+    td.center       { text-align: center; }
+    td.number       { direction: ltr; text-align: right; font-variant-numeric: tabular-nums; }
+    .product-name   { color: var(--navy); font-weight: 800; }
+    .source-tag     { color: var(--muted); font-size: 10px; }
+    .total-row td   { padding-top: 14px; border-bottom: 2px solid var(--navy); color: var(--navy); font-weight: 800; }
+
+    /* buy price hidden by default */
+    .col-buy               { display: none; }
+    .show-buy .col-buy     { display: table-cell; }
+
+    .financial-area { display: grid; grid-template-columns: 1fr 1.1fr; gap: 30px; margin-top: 24px; align-items: start; position: relative; z-index: 1; }
+    .amount-in-words { padding-top: 6px; color: var(--muted); font-size: 11px; }
+    .amount-in-words strong { display: block; margin-bottom: 6px; color: var(--navy); font-size: 13px; }
+
+    .summary            { border-top: 4px solid var(--accent); }
+    .summary-row        { display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+    .summary-row .label { color: var(--muted); }
+    .summary-row .value { color: var(--navy); font-weight: 700; direction: ltr; text-align: left; white-space: nowrap; }
+    .summary-row.profit .value { color: var(--green); }
+    .summary-row.due    { margin-top: 4px; padding: 14px 12px; border: 0; background: var(--navy); }
+    .summary-row.due .label,
+    .summary-row.due .value { color: #fff; font-weight: 800; }
+
+    /* buy/profit rows hidden by default */
+    .buy-summary-row             { display: none; }
+    .show-buy .buy-summary-row   { display: grid; }
+
+    /* quote disclaimer */
+    .quote-disclaimer {
+      margin-top: 16px; padding: 12px 16px;
+      background: var(--blue-light); border-right: 3px solid var(--blue);
+      font-size: 10px; color: var(--blue); font-weight: 600; line-height: 1.8;
+      position: relative; z-index: 1;
+    }
+
+    .signatures   { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; margin-top: 50px; padding-top: 22px; border-top: 1px solid var(--line); position: relative; z-index: 1; }
+    .signature    { min-height: 65px; text-align: center; }
+    .signature-space { height: 48px; margin-bottom: 8px; border-bottom: 1px solid var(--navy); }
+    .signature span  { color: var(--muted); font-size: 11px; font-weight: 600; }
+    .stamp        { width: 74px; height: 74px; margin: -12px auto 0; border: 2px solid var(--accent); border-radius: 50%;
+                    display: flex; align-items: center; justify-content: center;
+                    color: var(--accent); font-size: 10px; font-weight: 800;
+                    transform: rotate(-9deg); opacity: .8; }
+
+    .footer { margin-top: 30px; padding-top: 11px; border-top: 1px solid var(--line);
+              display: flex; justify-content: space-between; gap: 20px;
+              color: var(--muted); font-size: 9px; position: relative; z-index: 1; }
+
+    @media print {
+      @page { size: A4; margin: 0; }
+      html, body { background: #fff; }
+      body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .page { width: 210mm; min-height: 297mm; margin: 0; padding: 13mm 14mm; box-shadow: none; }
+      .print-actions { display: none; }
+      .col-buy         { display: none !important; }
+      .buy-summary-row { display: none !important; }
+    }
+
+    @media (max-width: 700px) {
+      .page { width: calc(100% - 18px); margin: 9px auto; padding: 20px 14px; }
+      .invoice-header, .info-grid, .financial-area { grid-template-columns: 1fr; }
+      .invoice-title { text-align: right; }
+      .signatures    { grid-template-columns: 1fr; gap: 24px; }
+      .footer        { flex-direction: column; }
+      .print-actions { width: calc(100% - 18px); }
+    }
+  </style>
+</head>
+<body>
+
+{% set is_quote = order.get('order_type', 'sale') == 'quote' %}
+
+<!-- ACTION BAR -->
+<div class="print-actions">
+  <button class="print-button" onclick="window.print()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 6 2 18 2 18 9"/>
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+      <rect x="6" y="14" width="12" height="8"/>
+    </svg>
+    {{ 'طباعة عرض السعر' if is_quote else 'طباعة الفاتورة' }}
+  </button>
+
+  {% if not is_quote %}
+  <label class="toggle-wrap" id="toggleWrap" for="buyToggle">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+    <span class="toggle-label" id="toggleLabel">إظهار سعر الشراء</span>
+    <label class="switch">
+      <input type="checkbox" id="buyToggle" onchange="toggleBuyPrice(this)">
+      <span class="slider"></span>
+    </label>
+  </label>
+  {% endif %}
+
+  <button class="print-button outline" onclick="window.close()">إغلاق</button>
+</div>
+
+<!-- INVOICE / QUOTE PAGE -->
+<main class="page" id="invoicePage">
+
+  {% if is_quote %}
+  <div class="quote-watermark">عرض سعر</div>
+  {% endif %}
+
+  <!-- HEADER -->
+  <header class="invoice-header">
+    <div>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1 class="company-name">{{ company.name or 'BIMS' }}</h1>
+          <div class="company-sub">نظام إدارة الوساطة التجارية</div>
+          <div class="contact">
+            {% if company.phone %}هاتف: <span dir="ltr">{{ company.phone }}</span><br>{% endif %}
+            {% if company.email %}البريد: <span dir="ltr">{{ company.email }}</span><br>{% endif %}
+            {% if company.address %}العنوان: {{ company.address }}<br>{% endif %}
+            {% if company.tax_number %}الرقم الضريبي: <span dir="ltr">{{ company.tax_number }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="invoice-title">
+      <div class="doc-type-chip {{ 'chip-quote' if is_quote else 'chip-sale' }}">
+        {{ '📄 طلب عرض سعر' if is_quote else '🛒 فاتورة بيع' }}
+      </div>
+      <h1>{{ 'عرض سعر' if is_quote else 'فاتورة بيع' }}</h1>
+      <div class="invoice-number">
+        {{ 'QUO' if is_quote else 'INV' }}-{{ '%05d'|format(order.id|int) }}
+      </div>
+      <div class="date-line">تاريخ الإصدار: {{ order.created_at[:10] if order.created_at else '—' }}</div>
+      <div class="date-line">تاريخ الطباعة: <span id="printDate"></span></div>
+      {% if is_quote %}
+      <div class="validity-note">⏳ هذا العرض صالح لمدة 30 يوم من تاريخ الإصدار</div>
+      {% endif %}
+    </div>
+  </header>
+
+  <!-- INFO GRID -->
+  <section class="info-grid">
+    <div class="info-box">
+      <h2>بيانات العميل</h2>
+      <div class="info-row"><span>العميل</span><strong>{{ order.client_name }}</strong></div>
+      <div class="info-row"><span>رقم المستند</span><strong dir="ltr">#{{ order.id }}</strong></div>
+      <div class="info-row"><span>تاريخ الطلب</span><strong dir="ltr">{{ order.created_at[:10] if order.created_at else '—' }}</strong></div>
+      {% if order.notes %}
+      <div class="info-row"><span>ملاحظات</span><strong>{{ order.notes }}</strong></div>
+      {% endif %}
+    </div>
+    <div class="info-box">
+      <h2>{{ 'بيانات العرض' if is_quote else 'حالة الفاتورة' }}</h2>
+      {% if is_quote %}
+      <div class="info-row"><span>نوع المستند</span><strong><span class="status-badge quote-type">عرض سعر</span></strong></div>
+      <div class="info-row"><span>الحالة</span>
+        <strong>
+          {% if order.status == 'completed' %}<span class="status-badge">مكتمل</span>
+          {% elif order.status == 'cancelled' %}<span class="status-badge cancelled">ملغي</span>
+          {% else %}<span class="status-badge new">مفتوح</span>{% endif %}
+        </strong>
+      </div>
+      <div class="info-row"><span>رقم العرض</span><strong dir="ltr">QUO-{{ '%05d'|format(order.id|int) }}</strong></div>
+      <div class="info-row"><span>صالح حتى</span><strong dir="ltr" id="validUntil">—</strong></div>
+      {% else %}
+      <div class="info-row"><span>الحالة</span>
+        <strong>
+          {% if order.status == 'completed' %}<span class="status-badge">مكتمل</span>
+          {% elif order.status == 'cancelled' %}<span class="status-badge cancelled">ملغي</span>
+          {% else %}<span class="status-badge new">جديد</span>{% endif %}
+        </strong>
+      </div>
+      <div class="info-row"><span>رقم الفاتورة</span><strong dir="ltr">INV-{{ '%05d'|format(order.id|int) }}</strong></div>
+      <div class="info-row"><span>تاريخ الإصدار</span><strong dir="ltr">{{ order.created_at[:10] if order.created_at else '—' }}</strong></div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- PRODUCTS TABLE -->
+  <section>
+    <div class="section-heading">
+      <h2>{{ 'تفاصيل عرض السعر' if is_quote else 'تفاصيل المبيعات' }}</h2>
+      <p>{{ 'عرض سعر' if is_quote else 'فاتورة مبيعات' }} — طلب رقم {{ order.id }}</p>
+    </div>
+    <div class="table-wrap">
+      <table id="itemsTable">
+        <thead>
+          <tr>
+            <th>الرقم</th>
+            <th>المنتج</th>
+            <th>المصدر</th>
+            <th>الكمية</th>
+            {% if not is_quote %}
+            <th class="col-buy">سعر الشراء</th>
+            {% endif %}
+            <th>سعر البيع</th>
+            <th>الإجمالي</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set ns = namespace(grand_cost=0, grand_sell=0) %}
+          {% for item in order_items %}
+          {% set qty      = item.quantity | float %}
+          {% set buy      = item.purchase_price | float %}
+          {% set sell     = item.sell_price | float %}
+          {% set row_sell = qty * sell %}
+          {% set ns.grand_cost = ns.grand_cost + qty * buy %}
+          {% set ns.grand_sell = ns.grand_sell + row_sell %}
+          <tr>
+            <td class="center">{{ loop.index }}</td>
+            <td><span class="product-name">{{ item.product_name or '—' }}</span></td>
+            <td><span class="source-tag">{{ 'من المخزون' if item.source == 'stock' else 'من المورد' }}</span></td>
+            <td class="center">{{ "{:,.1f}".format(qty) }}</td>
+            {% if not is_quote %}
+            <td class="number col-buy">{{ "{:,.2f}".format(buy) }} {{ currency }}</td>
+            {% endif %}
+            <td class="number">{{ "{:,.2f}".format(sell) }} {{ currency }}</td>
+            <td class="number">{{ "{:,.2f}".format(row_sell) }} {{ currency }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="total-row">
+            <td colspan="{{ 4 if is_quote else 4 }}">المجموع الكلي</td>
+            {% if not is_quote %}<td class="col-buy"></td>{% endif %}
+            <td></td>
+            <td class="number">{{ "{:,.2f}".format(order.total_sell | float) }} {{ currency }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- FINANCIAL SUMMARY -->
+  <section class="financial-area" id="financialArea">
+    <div class="amount-in-words">
+      <strong>{{ 'ملخص عرض السعر' if is_quote else 'ملخص الفاتورة' }}</strong>
+      {% if is_quote %}
+      قيمة عرض السعر الإجمالية المقدمة للعميل مقابل المنتجات
+      الموضحة في جدول العرض أعلاه. هذا العرض غير ملزم.
+      {% else %}
+      قيمة الفاتورة الإجمالية المستحقة مقابل المنتجات
+      والخدمات الموضحة في جدول المبيعات أعلاه.
+      {% endif %}
+      {% if order.notes %}<br><br><strong>ملاحظات:</strong> {{ order.notes }}{% endif %}
+    </div>
+    <div class="summary">
+      {% if not is_quote %}
+      <div class="summary-row buy-summary-row">
+        <span class="label">إجمالي التكلفة</span>
+        <span class="value">{{ "{:,.2f}".format(order.total_cost | float) }} {{ currency }}</span>
+      </div>
+      {% endif %}
+      <div class="summary-row">
+        <span class="label">{{ 'إجمالي عرض السعر' if is_quote else 'إجمالي البيع' }}</span>
+        <span class="value">{{ "{:,.2f}".format(order.total_sell | float) }} {{ currency }}</span>
+      </div>
+      {% if not is_quote %}
+      <div class="summary-row profit buy-summary-row">
+        <span class="label">الربح الصافي</span>
+        <span class="value">{{ "{:,.2f}".format(order.profit | float) }} {{ currency }}</span>
+      </div>
+      {% endif %}
+      <div class="summary-row due">
+        <span class="label">{{ 'المبلغ الإجمالي للعرض' if is_quote else 'المبلغ الإجمالي المستحق' }}</span>
+        <span class="value">{{ "{:,.2f}".format(order.total_sell | float) }} {{ currency }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE DISCLAIMER -->
+  {% if is_quote %}
+  <div class="quote-disclaimer">
+    ⚠ تنبيه: هذا المستند عبارة عن عرض سعر فقط وليس فاتورة بيع رسمية.
+    الأسعار المذكورة قابلة للتغيير. لتأكيد الطلب يرجى التواصل مع الشركة.
+  </div>
+  {% endif %}
+
+  <!-- SIGNATURES -->
+  <section class="signatures">
+    <div class="signature"><div class="signature-space"></div>
+      <span>{{ 'توقيع العميل (موافقة)' if is_quote else 'توقيع المستلم' }}</span>
+    </div>
+    <div class="signature"><div class="signature-space"></div><span>توقيع المسؤول</span></div>
+    <div class="signature"><div class="stamp">ختم الشركة</div></div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <span>{{ company.name or 'BIMS' }}</span>
+    <span>{{ 'عرض سعر' if is_quote else 'فاتورة بيع' }} — {{ 'QUO' if is_quote else 'INV' }}-{{ '%05d'|format(order.id|int) }}</span>
+  </footer>
+
+</main>
+
+<script>
+  document.getElementById('printDate').textContent = new Date().toLocaleDateString('ar-DZ');
+
+  {% if is_quote %}
+  // Set validity date (+30 days)
+  const issued = new Date('{{ order.created_at[:10] if order.created_at else "" }}');
+  if (!isNaN(issued)) {
+    issued.setDate(issued.getDate() + 30);
+    document.getElementById('validUntil').textContent = issued.toLocaleDateString('ar-DZ');
+  }
+  {% endif %}
+
+  function toggleBuyPrice(checkbox) {
+    const page  = document.getElementById('invoicePage');
+    const wrap  = document.getElementById('toggleWrap');
+    const label = document.getElementById('toggleLabel');
+    if (checkbox.checked) {
+      page.classList.add('show-buy');
+      wrap.classList.add('on');
+      label.textContent = 'إخفاء سعر الشراء';
+    } else {
+      page.classList.remove('show-buy');
+      wrap.classList.remove('on');
+      label.textContent = 'إظهار سعر الشراء';
+    }
+  }
+</script>
+</body>
+</html>

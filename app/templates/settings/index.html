@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}الإعدادات — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}النظام / <strong>الإعدادات</strong>{% endblock %}
+
+{% block top_actions %}
+<button form="settingsForm" type="submit" class="primary-button">
+  <svg class="icon small"><use href="#i-check"/></svg>
+  <span class="button-text">حفظ الإعدادات</span>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:32px;">
+    <h1>إعدادات النظام</h1>
+    <p>تخصيص بيانات الشركة وإعدادات النظام العامة</p>
+  </section>
+
+  <form method="POST" id="settingsForm" enctype="multipart/form-data" style="max-width:780px;">
+    <input type="hidden" name="action" value="company"/>
+
+    <!-- Company Identity -->
+    <div style="margin-bottom:10px; font-size:11px; color:var(--muted); font-weight:600;
+                text-transform:uppercase; letter-spacing:.06em; padding-right:4px;">
+      هوية الشركة
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+
+      <!-- Logo & Name row -->
+      <div style="display:flex; align-items:center; gap:20px; margin-bottom:24px;
+                  padding-bottom:24px; border-bottom:1px solid var(--line);">
+        <div id="logoPreview"
+             style="width:72px; height:72px; border-radius:12px; background:var(--ink);
+                    display:grid; place-items:center; flex:0 0 72px; overflow:hidden;">
+          {% if company and company.logo %}
+            <img src="{{ company.logo }}" style="width:100%; height:100%; object-fit:cover;"/>
+          {% else %}
+            <svg class="icon large" style="stroke:var(--lime);"><use href="#i-box"/></svg>
+          {% endif %}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:13px; font-weight:700; margin-bottom:4px;" id="companyNamePreview">
+            {{ company.name if company and company.name else 'اسم الشركة' }}
+          </div>
+          <div style="font-size:11px; color:var(--muted);">اسم الشركة يظهر في الفواتير والتقارير</div>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="name">اسم الشركة <span style="color:var(--red);">*</span></label>
+          <input class="form-control" type="text" id="name" name="name"
+                 value="{{ company.name if company else '' }}"
+                 placeholder="اسم شركتك" required
+                 oninput="document.getElementById('companyNamePreview').textContent = this.value || 'اسم الشركة'"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="logo">شعار الشركة</label>
+          <!-- Logo preview -->
+          <div id="logoPreviewWrap" style="margin-bottom:10px; {% if not company or not company.get('logo') %}display:none;{% endif %}">
+            <img id="logoPreviewImg"
+                 src="{{ company.logo if company and company.get('logo') else '' }}"
+                 style="height:60px; max-width:180px; object-fit:contain; border-radius:8px;
+                        border:1px solid var(--line); padding:6px; background:white;"/>
+          </div>
+          <!-- File input styled -->
+          <label for="logo" style="display:flex; align-items:center; gap:10px; cursor:pointer;
+                 min-height:42px; padding:0 13px; border:1px dashed var(--line); border-radius:6px;
+                 background:var(--paper); transition:border-color .15s; font-size:13px; color:var(--muted);"
+                 id="logoLabel">
+            <svg class="icon small"><use href="#i-plus"/></svg>
+            <span id="logoLabelText">اختر صورة الشعار...</span>
+          </label>
+          <input type="file" id="logo" name="logo" accept=".png,.jpg,.jpeg,.gif,.svg"
+                 style="display:none;" onchange="previewLogo(this)"/>
+          <div style="font-size:11px; color:var(--muted); margin-top:6px;">
+            PNG, JPG, SVG — الحجم الأقصى 2MB
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="address">عنوان الشركة</label>
+        <input class="form-control" type="text" id="address" name="address"
+               value="{{ company.address if company else '' }}"
+               placeholder="الولاية، البلدية، الشارع..."/>
+      </div>
+    </div>
+
+    <!-- Contact -->
+    <div style="margin-bottom:10px; font-size:11px; color:var(--muted); font-weight:600;
+                text-transform:uppercase; letter-spacing:.06em; padding-right:4px;">
+      بيانات التواصل
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="phone">رقم الهاتف</label>
+          <input class="form-control" type="text" id="phone" name="phone"
+                 value="{{ company.phone if company else '' }}"
+                 placeholder="05XXXXXXXX" dir="ltr"/>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="email">البريد الإلكتروني</label>
+          <input class="form-control" type="email" id="email" name="email"
+                 value="{{ company.email if company else '' }}"
+                 placeholder="info@company.com" dir="ltr"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legal & Financial -->
+    <div style="margin-bottom:10px; font-size:11px; color:var(--muted); font-weight:600;
+                text-transform:uppercase; letter-spacing:.06em; padding-right:4px;">
+      البيانات القانونية والمالية
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="tax_number">الرقم الضريبي</label>
+          <input class="form-control" type="text" id="tax_number" name="tax_number"
+                 value="{{ company.tax_number if company else '' }}"
+                 placeholder="XXXXXXXXXXXXXXX" dir="ltr"/>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="currency">العملة</label>
+          <select class="form-control" id="currency" name="currency">
+            {% set currencies = [('{{ currency }}', 'دينار جزائري'), ('د.ل', 'دينار ليبي'), ('ر.س', 'ريال سعودي'), ('د.م', 'درهم مغربي'), ('$', 'دولار أمريكي'), ('€', 'يورو')] %}
+            {% for code, label in currencies %}
+            <option value="{{ code }}" {{ 'selected' if company and company.get('currency') == code else '' }}>
+              {{ code }} — {{ label }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invoice Settings -->
+    <div style="margin-bottom:10px; font-size:11px; color:var(--muted); font-weight:600;
+                text-transform:uppercase; letter-spacing:.06em; padding-right:4px;">
+      إعدادات الفاتورة
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+      <div class="form-group">
+        <label class="form-label" for="invoice_prefix">بادئة رقم الفاتورة</label>
+        <input class="form-control" type="text" id="invoice_prefix" name="invoice_prefix"
+               value="{{ company.invoice_prefix if company and company.get('invoice_prefix') else 'INV' }}"
+               placeholder="INV" dir="ltr" style="max-width:200px;"/>
+        <div style="font-size:11px; color:var(--muted); margin-top:6px;">
+          مثال: <span dir="ltr">{{ company.invoice_prefix if company and company.get('invoice_prefix') else 'INV' }}-00001</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="invoice_notes">ملاحظات ثابتة في الفاتورة</label>
+        <textarea class="form-control" id="invoice_notes" name="invoice_notes"
+                  placeholder="نص يظهر في أسفل كل فاتورة..."
+                  style="min-height:80px;">{{ company.invoice_notes if company and company.get('invoice_notes') else '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Password Change -->
+    <div style="margin-bottom:10px; font-size:11px; color:var(--muted); font-weight:600;
+                text-transform:uppercase; letter-spacing:.06em; padding-right:4px;">
+      تغيير كلمة المرور
+    </div>
+    <div class="card" style="margin-bottom:28px;">
+      <div style="font-size:12px; color:var(--muted); margin-bottom:18px;">
+        اتركها فارغة إذا لا تريد تغيير كلمة المرور
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="new_password">كلمة المرور الجديدة</label>
+          <input class="form-control" type="password" id="new_password" name="new_password"
+                 placeholder="••••••••" dir="ltr"/>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="new_password2">تأكيد كلمة المرور</label>
+          <input class="form-control" type="password" id="new_password2" name="new_password2"
+                 placeholder="••••••••" dir="ltr"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; gap:12px; align-items:center;
+                padding-top:24px; border-top:1px solid var(--line);">
+      <button type="submit" class="primary-button" style="min-width:180px; min-height:48px; font-size:15px;">
+        <svg class="icon small"><use href="#i-check"/></svg>
+        حفظ الإعدادات
+      </button>
+      <div style="font-size:12px; color:var(--muted);">
+        سيتم تطبيق التغييرات فوراً على النظام
+      </div>
+    </div>
+
+  </form>
+
+  <!-- Danger Zone -->
+  <div style="max-width:780px; margin-top:48px; padding-top:28px; border-top:1px solid var(--line);">
+    <div style="font-size:11px; color:var(--red); font-weight:700;
+                text-transform:uppercase; letter-spacing:.06em; margin-bottom:14px;">
+      منطقة الخطر
+    </div>
+    <div style="padding:20px 24px; border:1px solid rgba(200,77,58,.25); border-radius:8px;
+                background:rgba(200,77,58,.04); display:flex; align-items:center; justify-content:space-between; gap:20px;">
+      <div>
+        <div style="font-size:14px; font-weight:700; margin-bottom:4px;">تسجيل الخروج من جميع الأجهزة</div>
+        <div style="font-size:12px; color:var(--muted);">سيتم إنهاء جميع الجلسات النشطة في النظام</div>
+      </div>
+      <a href="{{ url_for('auth.logout') }}"
+         style="min-height:38px; display:inline-flex; align-items:center; gap:8px;
+                padding:0 16px; border-radius:6px; border:1px solid rgba(200,77,58,.4);
+                background:transparent; color:var(--red); font-size:13px; font-weight:600;
+                white-space:nowrap; text-decoration:none; transition:all .15s;"
+         onmouseover="this.style.background='rgba(200,77,58,.08)'"
+         onmouseout="this.style.background='transparent'">
+        <svg class="icon small"><use href="#i-logout"/></svg>
+        تسجيل الخروج
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Logo file preview
+function previewLogo(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const wrap = document.getElementById('logoPreviewWrap');
+    const img  = document.getElementById('logoPreviewImg');
+    const lbl  = document.getElementById('logoLabelText');
+    img.src = e.target.result;
+    wrap.style.display = 'block';
+    lbl.textContent = file.name;
+    document.getElementById('logoLabel').style.borderColor = 'var(--ink)';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Drag over style
+const logoLabel = document.getElementById('logoLabel');
+if (logoLabel) {
+  logoLabel.addEventListener('dragover', e => { e.preventDefault(); logoLabel.style.borderColor='var(--ink)'; });
+  logoLabel.addEventListener('dragleave', () => logoLabel.style.borderColor='var(--line)');
+  logoLabel.addEventListener('drop', e => {
+    e.preventDefault();
+    const dt = e.dataTransfer;
+    if (dt.files[0]) {
+      document.getElementById('logo').files = dt.files;
+      previewLogo(document.getElementById('logo'));
+    }
+  });
+}
+
+// Live prefix preview
+const pfx = document.getElementById('invoice_prefix');
+if (pfx) {
+  pfx.addEventListener('input', function() {
+    const next = this.parentElement.querySelector('span');
+    if (next) next.textContent = (this.value || 'INV') + '-00001';
+  });
+}
+</script>
+{% endblock %}

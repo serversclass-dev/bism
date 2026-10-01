@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}لوحة التحكم — BIMS{% endblock %}
+
+{% block breadcrumb %}النظام / <strong>لوحة التحكم</strong>{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('orders.add') }}" class="primary-button">
+  <svg class="icon small"><use href="#i-plus"/></svg>
+  <span class="button-text">طلب جديد</span>
+</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .stats-section{--navy:#132238;--sg:#176b5b;--sg-soft:#e8f2ef;--gold:#c7a45d;--gold-soft:#f8f1df;--sblue:#3679b7;--sblue-soft:#eaf3fb;--purple:#7561a8;--purple-soft:#f0edfa;--sred:#bd4b4b;--sbg:#f3f5f3;--sw:#ffffff;--st:#18212b;--smuted:#78838b;--sborder:#e0e5e3;width:100%;padding:8px 0 32px;font-family:var(--font);}
+  .stats-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:20px;}
+  .stats-heading h2{margin:0;color:var(--navy);font-size:21px;font-weight:800;}
+  .stats-heading p{margin:3px 0 0;color:var(--smuted);font-size:10px;}
+  .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;}
+  .stat-card{position:relative;min-height:175px;padding:19px;overflow:hidden;background:var(--sw);border:1px solid var(--sborder);transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;}
+  .stat-card:hover{transform:translateY(-3px);border-color:rgba(23,107,91,.25);box-shadow:0 14px 35px rgba(19,34,56,.08);}
+  .stat-primary{background:linear-gradient(145deg,#ffffff 0%,#f4faf8 100%);}
+  .stat-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .stat-top>span{color:var(--smuted);font-size:10px;}
+  .stat-icon{width:35px;height:35px;display:flex;align-items:center;justify-content:center;flex:0 0 35px;color:var(--sg);background:var(--sg-soft);border-radius:50%;font-size:13px;font-weight:700;}
+  .stat-icon.green{color:var(--sg);background:var(--sg-soft);}
+  .stat-icon.blue{color:var(--sblue);background:var(--sblue-soft);}
+  .stat-icon.gold{color:#9a762c;background:var(--gold-soft);}
+  .stat-icon.dark{color:var(--navy);background:#edf0f3;}
+  .stat-icon.purple{color:var(--purple);background:var(--purple-soft);}
+  .stat-icon.red{color:var(--sred);background:#fdf0f0;}
+  .stat-value{margin-top:12px;color:var(--navy);font-size:clamp(22px,2.1vw,29px);font-weight:800;line-height:1.15;direction:ltr;text-align:right;font-variant-numeric:tabular-nums;}
+  .stat-unit{color:var(--smuted);font-size:9px;font-weight:500;margin-right:3px;}
+  .stat-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;}
+  .stat-bottom>span:last-child{color:#98a1a7;font-size:8px;}
+  .spositive{color:var(--sg);font-size:9px;font-weight:800;}
+  .snegative{color:var(--sred);font-size:9px;font-weight:800;}
+  .progress-s{height:5px;margin-top:22px;overflow:hidden;background:#edf0ee;}
+  .progress-s span{display:block;height:100%;background:var(--sg);}
+  .mini-chart{position:absolute;left:18px;right:18px;bottom:8px;height:50px;opacity:.9;}
+  .mini-chart svg{width:100%;height:100%;}
+  .mini-bars{height:42px;display:flex;align-items:flex-end;gap:5px;margin-top:17px;}
+  .mini-bars i{flex:1;min-width:4px;display:block;background:var(--sblue);opacity:.75;border-radius:2px 2px 0 0;transform-origin:bottom;}
+  .customer-stack{display:flex;direction:ltr;margin-top:17px;padding-left:3px;}
+  .customer-stack span{width:27px;height:27px;display:flex;align-items:center;justify-content:center;margin-left:-6px;color:#fff;background:var(--sg);border:2px solid #fff;border-radius:50%;font-size:8px;font-weight:700;}
+  .customer-stack span:nth-child(2){background:var(--sblue);}
+  .customer-stack span:nth-child(3){background:var(--gold);}
+  .customer-stack span:nth-child(4){background:var(--purple);}
+  .customer-stack span:last-child{color:var(--navy);background:#edf0ee;}
+  .inventory-line{margin-top:18px;}
+  .inventory-line>div:first-child{display:flex;justify-content:space-between;margin-bottom:6px;color:var(--smuted);font-size:8px;}
+  .inventory-line strong{color:var(--navy);}
+  .inventory-track{height:6px;overflow:hidden;background:#edf0ee;}
+  .inventory-track span{display:block;width:72%;height:100%;background:linear-gradient(90deg,var(--sg),#4b9a88);}
+  .average-line{height:6px;margin-top:21px;overflow:hidden;background:#edf0ee;}
+  .average-line span{display:block;width:68%;height:100%;background:var(--purple);}
+  .wide-card{min-height:155px;}
+  @media(max-width:1050px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media(max-width:600px){.stats-heading{align-items:stretch;flex-direction:column;}.stats-grid{grid-template-columns:1fr;}.stat-card{min-height:165px;}}
+  @media(prefers-reduced-motion:reduce){.stat-card{transition:none;}}
+
+  /* HERO */
+  .dash-hero{padding:36px 0 28px;display:grid;grid-template-columns:1fr auto;gap:40px;align-items:end;border-bottom:1px solid var(--line);margin-bottom:0;}
+  .dash-hero h1{margin:0;font-size:clamp(32px,4vw,52px);font-weight:700;letter-spacing:-0.04em;line-height:1.08;}
+  .dash-hero p{margin:14px 0 0;color:var(--muted);font-size:14px;line-height:1.8;max-width:500px;}
+  .date-box{border-right:4px solid var(--lime);padding-right:18px;white-space:nowrap;}
+  .date-number{font-size:20px;font-weight:700;}
+  .date-desc{color:var(--muted);font-size:11px;margin-top:5px;}
+
+  /* RECENT TABLE */
+  .recent-section{margin-top:32px;}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HERO -->
+<div class="dash-hero">
+  <div>
+    <h1>مرحباً،<br>{{ session.user.name.split()[0] }}.</h1>
+    <p>هذه نظرة سريعة على حالة النظام اليوم. يمكنك متابعة الطلبات والمخزون والمدفوعات من هنا.</p>
+  </div>
+  <div class="date-box">
+    <div class="date-number" id="dateDisplay">—</div>
+    <div class="date-desc" id="dayDisplay">—</div>
+  </div>
+</div>
+
+<!-- STATS SECTION -->
+<section class="stats-section" dir="rtl">
+  <div class="stats-heading">
+    <div>
+      <h2>إحصائيات الشركة</h2>
+      <p>ملخص الأداء المالي والتشغيلي</p>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+
+    <!-- Sales -->
+    <article class="stat-card stat-primary">
+      <div class="stat-top">
+        <span>إجمالي المبيعات</span>
+        <div class="stat-icon green">↗</div>
+      </div>
+      <div class="stat-value" data-value="{{ stats.total_sales | int }}" data-unit="{{ currency }}">0</div>
+      <div class="stat-bottom">
+        <span class="spositive">↑ المبيعات الكلية</span>
+        <span>من {{ stats.total_orders }} طلب</span>
+      </div>
+      <div class="mini-chart">
+        <svg viewBox="0 0 300 70" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#176b5b" stop-opacity=".25"/>
+              <stop offset="100%" stop-color="#176b5b" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0 58 C25 54 35 43 55 47 C78 51 84 27 105 34 C125 41 136 21 155 29 C176 38 186 17 207 23 C230 30 238 12 258 18 C275 22 285 7 300 10 L300 70 L0 70 Z" fill="url(#salesGrad)"/>
+          <path d="M0 58 C25 54 35 43 55 47 C78 51 84 27 105 34 C125 41 136 21 155 29 C176 38 186 17 207 23 C230 30 238 12 258 18 C275 22 285 7 300 10" fill="none" stroke="#176b5b" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </article>
+
+    <!-- Profit -->
+    <article class="stat-card">
+      <div class="stat-top">
+        <span>صافي الربح</span>
+        <div class="stat-icon green">◆</div>
+      </div>
+      <div class="stat-value" data-value="{{ stats.total_profit | int }}" data-unit="{{ currency }}">0</div>
+      <div class="stat-bottom">
+        <span class="spositive">
+          {% if stats.total_sales > 0 %}
+            هامش {{ "{:.1f}".format(stats.total_profit / stats.total_sales * 100) }}%
+          {% else %}—{% endif %}
+        </span>
+        <span>الربح الإجمالي</span>
+      </div>
+      {% set margin_pct = ((stats.total_profit / stats.total_sales * 100) if stats.total_sales > 0 else 0) | int %}
+      <div class="progress-s"><span style="width:{{ [margin_pct, 100] | min }}%;"></span></div>
+    </article>
+
+    <!-- Orders -->
+    <article class="stat-card">
+      <div class="stat-top">
+        <span>إجمالي الطلبات</span>
+        <div class="stat-icon blue">▣</div>
+      </div>
+      <div class="stat-value no-unit" data-value="{{ stats.total_orders }}" data-unit="">0</div>
+      <div class="stat-bottom">
+        <span class="spositive">↑ الطلبات الكلية</span>
+        <span>طلب مسجل</span>
+      </div>
+      <div class="mini-bars">
+        <i style="height:35%"></i><i style="height:55%"></i><i style="height:42%"></i>
+        <i style="height:68%"></i><i style="height:58%"></i><i style="height:80%"></i>
+        <i style="height:72%"></i><i style="height:95%"></i>
+      </div>
+    </article>
+
+    <!-- Clients -->
+    <article class="stat-card">
+      <div class="stat-top">
+        <span>العملاء المسجلون</span>
+        <div class="stat-icon gold">
+          <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.2 2.5-5 6-5s6 1.8 6 5"/>
+            <path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17 15c2.5.3 4 1.9 4 4.5"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stat-value no-unit" data-value="{{ stats.total_clients }}" data-unit="">0</div>
+      <div class="stat-bottom">
+        <span class="spositive">↑ إجمالي العملاء</span>
+        <span>{{ stats.total_clients }} عميل مسجل</span>
+      </div>
+      <div class="customer-stack">
+        {% for c in clients[:4] %}
+          <span title="{{ c.name }}">{{ c.name[:1] }}</span>
+        {% endfor %}
+        {% if stats.total_clients > 4 %}
+          <span>+{{ stats.total_clients - 4 }}</span>
+        {% elif stats.total_clients == 0 %}
+          <span style="background:var(--surface-2);color:var(--muted);">—</span>
+        {% endif %}
+      </div>
+    </article>
+
+    <!-- Client Debt -->
+    <article class="stat-card wide-card">
+      <div class="stat-top">
+        <span>مديونية العملاء</span>
+        <div class="stat-icon red">
+          <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24">
+            <rect x="3" y="6" width="18" height="12" rx="2"/>
+            <circle cx="12" cy="12" r="2.5"/>
+            <path d="M7 10v4"/><path d="M17 10v4"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stat-value" data-value="{{ stats.client_debt | int }}" data-unit="{{ currency }}">0</div>
+      <div class="stat-bottom">
+        <span class="{{ 'snegative' if stats.client_debt > 0 else 'spositive' }}">
+          {{ '↑ مستحق التحصيل' if stats.client_debt > 0 else '✓ لا مديونية' }}
+        </span>
+        <span>من {{ stats.total_clients }} عميل</span>
+      </div>
+      <div class="inventory-line">
+        {% set collected = stats.total_sales - stats.client_debt %}
+        {% set collect_pct = ((collected / stats.total_sales * 100) | int) if stats.total_sales > 0 else 0 %}
+        <div>
+          <span>تم التحصيل</span>
+          <strong>{{ [collect_pct, 0] | max }}%</strong>
+        </div>
+        <div class="inventory-track">
+          <span style="width:{{ [collect_pct, 0] | max }}%;"></span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Purchases -->
+    <article class="stat-card wide-card">
+      <div class="stat-top">
+        <span>إجمالي المشتريات</span>
+        <div class="stat-icon purple">◇</div>
+      </div>
+      <div class="stat-value" data-value="{{ stats.total_purchases | int }}" data-unit="{{ currency }}">0</div>
+      <div class="stat-bottom">
+        <span class="snegative">↓ تكلفة البضاعة</span>
+        <span>{{ currency }} إجمالي الشراء</span>
+      </div>
+      <div class="average-line">
+        <span style="width:{% if stats.total_sales > 0 %}{{ [(stats.total_purchases / stats.total_sales * 100)|int, 100]|min }}{% else %}50{% endif %}%;"></span>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- QUICK ACTIONS -->
+<section class="quick-actions" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px;">
+  <a href="{{ url_for('orders.add') }}" style="display:flex;align-items:center;gap:10px;padding:16px;background:var(--ink);color:white;border-radius:7px;font-weight:600;font-size:13px;transition:background .15s;"
+     onmouseover="this.style.background='var(--ink-2)'" onmouseout="this.style.background='var(--ink)'">
+    <svg class="icon" style="stroke:var(--lime)"><use href="#i-plus"/></svg> طلب جديد
+  </a>
+  <a href="{{ url_for('clients.add') }}" style="display:flex;align-items:center;gap:10px;padding:16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:7px;font-weight:600;font-size:13px;transition:background .15s;"
+     onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--surface)'">
+    <svg class="icon"><use href="#i-users"/></svg> عميل جديد
+  </a>
+  <a href="{{ url_for('purchases.add') }}" style="display:flex;align-items:center;gap:10px;padding:16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:7px;font-weight:600;font-size:13px;transition:background .15s;"
+     onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--surface)'">
+    <svg class="icon"><use href="#i-cart"/></svg> شراء جديد
+  </a>
+  <a href="{{ url_for('payments.add') }}" style="display:flex;align-items:center;gap:10px;padding:16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:7px;font-weight:600;font-size:13px;transition:background .15s;"
+     onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--surface)'">
+    <svg class="icon"><use href="#i-money"/></svg> دفعة جديدة
+  </a>
+</section>
+
+<!-- RECENT ORDERS -->
+<section class="recent-section">
+  <div class="section-head">
+    <div>
+      <h2>آخر الطلبات</h2>
+      <p>أحدث العمليات المسجلة في النظام</p>
+    </div>
+    <a href="{{ url_for('orders.index') }}" class="secondary-button">
+      عرض الكل
+      <svg class="icon small"><use href="#i-eye"/></svg>
+    </a>
+  </div>
+
+  <div class="table-wrapper">
+    {% if recent_orders %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>رقم الطلب</th>
+          <th>العميل</th>
+          <th>إجمالي البيع</th>
+          <th>الربح</th>
+          <th>الحالة</th>
+          <th>التاريخ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in recent_orders %}
+        <tr>
+          <td><span style="font-weight:700;">#{{ o.id }}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:9px;">
+              <div class="avatar" style="background:var(--surface-2);color:var(--ink);font-size:11px;width:28px;height:28px;flex:0 0 28px;">
+                {{ o.client_name[:1] if o.client_name else '?' }}
+              </div>
+              <span>{{ o.client_name }}</span>
+            </div>
+          </td>
+          <td class="number">{{ "{:,.2f}".format(o.total_sell | float) }} {{ currency }}</td>
+                  <td class="number" style="color:var(--green);font-weight:700;">{{ "{:,.2f}".format(o.profit | float) }} {{ currency }}</td>
+          <td>
+            {% if o.status == 'new' %}<span class="badge badge-blue">جديد</span>
+            {% elif o.status == 'completed' %}<span class="badge badge-green">مكتمل</span>
+            {% elif o.status == 'cancelled' %}<span class="badge badge-red">ملغي</span>
+            {% else %}<span class="badge badge-muted">{{ o.status }}</span>{% endif %}
+          </td>
+          <td style="color:var(--muted);font-size:12px;">{{ o.created_at[:10] if o.created_at else '—' }}</td>
+          <td>
+            <a href="{{ url_for('orders.view', id=o.id) }}" class="icon-button" title="عرض">
+              <svg class="icon small"><use href="#i-eye"/></svg>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <svg class="icon xlarge" style="margin:0 auto 16px;display:block;"><use href="#i-clipboard"/></svg>
+      <h3>لا توجد طلبات بعد</h3>
+      <p>ابدأ بإنشاء طلبك الأول</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+// Date display
+(function(){
+  const days   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+  const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const now = new Date();
+  document.getElementById('dateDisplay').textContent = now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+  document.getElementById('dayDisplay').textContent  = days[now.getDay()];
+})();
+
+// Animated counters
+document.querySelectorAll('.stat-value').forEach(el => {
+  const target = Number(el.dataset.value) || 0;
+  const unit   = el.dataset.unit || '';
+  const obj    = {v: 0};
+  const cur = document.getElementById('_currency')?.dataset?.cur || '{{ currency }}';
+  gsap.to(obj, {
+    v: target, duration: 1.6, ease: 'power3.out', delay: .3,
+    onUpdate() {
+      const n = Math.round(obj.v).toLocaleString('en-US');
+      el.innerHTML = n + (unit ? `<span class="stat-unit">${unit === '{{ currency }}' ? cur : unit}</span>` : '');
+    }
+  });
+});
+
+// Card entrance
+gsap.from('.stat-card', {y:28, opacity:0, duration:.75, stagger:.08, ease:'power3.out', delay:.2});
+gsap.from('.stats-heading', {y:-15, opacity:0, duration:.6, ease:'power2.out'});
+gsap.from('.progress-s span', {scaleX:0, transformOrigin:'right center', duration:1.1, delay:.6, ease:'power3.out'});
+gsap.from('.mini-bars i',     {scaleY:0, transformOrigin:'bottom', duration:.8, delay:.5, stagger:.07, ease:'back.out(1.5)'});
+gsap.from('.inventory-track span, .average-line span', {scaleX:0, transformOrigin:'right center', duration:1, delay:.9, ease:'power3.out'});
+gsap.from('.customer-stack span', {scale:0, opacity:0, duration:.5, delay:.9, stagger:.08, ease:'back.out(2)'});
+
+// Icon hover
+document.querySelectorAll('.stat-card').forEach(card => {
+  const icon = card.querySelector('.stat-icon');
+  card.addEventListener('mouseenter', () => gsap.to(icon, {rotate:8, scale:1.08, duration:.25, ease:'power2.out'}));
+  card.addEventListener('mouseleave', () => gsap.to(icon, {rotate:0, scale:1,    duration:.25, ease:'power2.out'}));
+});
+</script>
+{% endblock %}

@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'تعديل منتج' if action == 'edit' else 'إضافة منتج' }} — BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('products.index') }}" style="color:var(--muted);">المنتجات</a> /
+  <strong>{{ 'تعديل منتج' if action == 'edit' else 'منتج جديد' }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('products.index') }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-x"/></svg>
+  إلغاء
+</a>
+{% endblock %}
+
+{% block content %}
+<div>
+
+  <section class="page-hero" style="margin-bottom:32px;">
+    <h1>{{ 'تعديل بيانات المنتج' if action == 'edit' else 'إضافة منتج جديد' }}</h1>
+    <p>{{ 'قم بتحديث بيانات المنتج أدناه' if action == 'edit' else 'أدخل بيانات المنتج الجديد' }}</p>
+  </section>
+
+  <div style="display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:start; max-width:900px;">
+
+    <form method="POST" id="productForm">
+
+      <!-- Basic Info -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">البيانات الأساسية</div>
+
+        <div class="form-group">
+          <label class="form-label" for="name">اسم المنتج <span style="color:var(--red);">*</span></label>
+          <input class="form-control" type="text" id="name" name="name"
+                 value="{{ product.name if product else '' }}"
+                 placeholder="أدخل اسم المنتج" required oninput="updatePreview()"/>
+        </div>
+
+        <div class="form-grid-2">
+          <!-- Category: free text + datalist -->
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="category">الفئة</label>
+            <input class="form-control" type="text" id="category" name="category"
+                   value="{{ product.category if product else '' }}"
+                   placeholder="اكتب فئة جديدة أو اختر..."
+                   list="categoryList" oninput="updatePreview()"/>
+            <datalist id="categoryList">
+              {% for cat in categories %}
+              <option value="{{ cat }}">
+              {% endfor %}
+            </datalist>
+            <div style="font-size:11px;color:var(--muted);margin-top:5px;">
+              اكتب فئة جديدة أو اختر من القائمة
+            </div>
+          </div>
+
+          <!-- Unit: free text + datalist -->
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="unit">وحدة القياس</label>
+            <input class="form-control" type="text" id="unit" name="unit"
+                   value="{{ product.unit if product else '' }}"
+                   placeholder="قطعة، كيلو، لتر..."
+                   list="unitList"/>
+            <datalist id="unitList">
+              {% for u in units %}
+              <option value="{{ u }}">
+              {% endfor %}
+              <option value="قطعة">
+              <option value="كيلوغرام">
+              <option value="لتر">
+              <option value="متر">
+              <option value="صندوق">
+              <option value="دزينة">
+              <option value="طن">
+            </datalist>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:16px; margin-bottom:0;">
+          <label class="form-label" for="description">وصف المنتج</label>
+          <textarea class="form-control" id="description" name="description"
+                    placeholder="وصف مختصر للمنتج..." style="min-height:70px;">{{ product.description if product else '' }}</textarea>
+        </div>
+      </div>
+
+      <!-- Supplier -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">المورد الافتراضي</div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="supplier_id">المورد</label>
+          <select class="form-control" id="supplier_id" name="supplier_id">
+            <option value="">— بدون مورد افتراضي —</option>
+            {% for s in suppliers %}
+            <option value="{{ s.id }}"
+                    {{ 'selected' if product and product.get('supplier_id') == s.id|string else '' }}>
+              {{ s.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <div class="card" style="margin-bottom:28px;">
+        <div class="card-title">الأسعار الافتراضية</div>
+        <div class="form-grid-2">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="default_purchase_price">سعر الشراء الافتراضي ({{ currency }})</label>
+            <input class="form-control" type="number" id="default_purchase_price"
+                   name="default_purchase_price"
+                   value="{{ product.default_purchase_price if product else '' }}"
+                   placeholder="0.00" step="0.01" min="0" oninput="calcMargin()"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="default_sell_price">سعر البيع الافتراضي ({{ currency }})</label>
+            <input class="form-control" type="number" id="default_sell_price"
+                   name="default_sell_price"
+                   value="{{ product.default_sell_price if product else '' }}"
+                   placeholder="0.00" step="0.01" min="0" oninput="calcMargin()"/>
+          </div>
+        </div>
+
+        <!-- Live margin -->
+        <div id="marginDisplay" style="margin-top:16px; padding:14px 16px; border-radius:6px;
+             background:var(--surface); display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:var(--muted);">هامش الربح المحسوب</span>
+          <span id="marginValue" style="font-size:16px; font-weight:700; color:var(--muted);">—</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button type="submit" class="primary-button" style="min-width:160px;">
+          <svg class="icon small"><use href="#i-check"/></svg>
+          {{ 'حفظ التعديلات' if action == 'edit' else 'إضافة المنتج' }}
+        </button>
+        <a href="{{ url_for('products.index') }}" class="secondary-button">إلغاء</a>
+
+        {% if action == 'edit' and product %}
+        <form method="POST" action="{{ url_for('products.delete', id=product.id) }}"
+              onsubmit="return confirm('هل أنت متأكد من حذف هذا المنتج؟');"
+              style="margin:0 auto 0 0;">
+          <button type="submit" class="danger-button">
+            <svg class="icon small"><use href="#i-trash"/></svg>
+            حذف المنتج
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+    </form>
+
+    <!-- LIVE PREVIEW -->
+    <div class="card" style="position:sticky; top:24px;">
+      <div class="card-title">معاينة المنتج</div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <div style="width:48px; height:48px; border-radius:8px; background:var(--ink);
+                    display:grid; place-items:center; flex:0 0 48px;">
+          <svg class="icon" style="stroke:var(--lime);"><use href="#i-box"/></svg>
+        </div>
+        <div>
+          <div id="previewName" style="font-weight:700; font-size:15px;">{{ product.name if product else 'اسم المنتج' }}</div>
+          <div id="previewCat"  style="font-size:11px; color:var(--muted);">{{ product.category if product else 'الفئة' }}</div>
+        </div>
+      </div>
+
+      <div style="display:grid; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden;">
+        <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+          <span style="font-size:11px; color:var(--muted);">سعر الشراء</span>
+          <span id="previewBuy" style="font-size:13px; font-weight:600;">
+            {{ "{:,.2f}".format(product.default_purchase_price | float) if product else '0.00' }} {{ currency }}
+          </span>
+        </div>
+        <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+          <span style="font-size:11px; color:var(--muted);">سعر البيع</span>
+          <span id="previewSell" style="font-size:13px; font-weight:600; color:var(--green);">
+            {{ "{:,.2f}".format(product.default_sell_price | float) if product else '0.00' }} {{ currency }}
+          </span>
+        </div>
+        <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+          <span style="font-size:11px; color:var(--muted);">الربح للوحدة</span>
+          <span id="previewProfit" style="font-size:13px; font-weight:700; color:var(--green);">—</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; padding:16px; background:var(--ink); border-radius:6px; text-align:center;">
+        <div style="font-size:10px; color:#6b7470; margin-bottom:6px;">هامش الربح</div>
+        <div id="previewMargin" style="font-size:30px; font-weight:700; color:var(--lime);">—</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function calcMargin() {
+  const buy  = parseFloat(document.getElementById('default_purchase_price').value) || 0;
+  const sell = parseFloat(document.getElementById('default_sell_price').value) || 0;
+  const profit = sell - buy;
+  const margin = buy > 0 ? (profit / buy * 100) : 0;
+
+  const md = document.getElementById('marginDisplay');
+  const mv = document.getElementById('marginValue');
+  if (buy > 0 && sell > 0) {
+    mv.textContent = margin.toFixed(1) + '%';
+    mv.style.color = margin >= 0 ? 'var(--green)' : 'var(--red)';
+    md.style.background = margin >= 0 ? 'rgba(37,129,88,.08)' : 'rgba(200,77,58,.08)';
+  } else {
+    mv.textContent = '—';
+    mv.style.color = 'var(--muted)';
+    md.style.background = 'var(--surface)';
+  }
+
+  document.getElementById('previewBuy').textContent  = buy.toLocaleString('ar-DZ',{minimumFractionDigits:2}) + ' {{ currency }}';
+  document.getElementById('previewSell').textContent = sell.toLocaleString('ar-DZ',{minimumFractionDigits:2}) + ' {{ currency }}';
+  const profitEl = document.getElementById('previewProfit');
+  profitEl.textContent = (profit >= 0 ? '+' : '') + profit.toLocaleString('ar-DZ',{minimumFractionDigits:2}) + ' {{ currency }}';
+  profitEl.style.color = profit >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('previewMargin').textContent = buy > 0 ? margin.toFixed(1) + '%' : '—';
+  document.getElementById('previewMargin').style.color = margin >= 0 ? 'var(--lime)' : 'var(--red)';
+}
+
+function updatePreview() {
+  const name = document.getElementById('name').value;
+  const cat  = document.getElementById('category').value;
+  if (name) document.getElementById('previewName').textContent = name;
+  if (cat)  document.getElementById('previewCat').textContent  = cat;
+}
+
+calcMargin();
+</script>
+{% endblock %}

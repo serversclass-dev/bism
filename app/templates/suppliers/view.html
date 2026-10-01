@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}{{ supplier.name }} — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('suppliers.index') }}" style="color:var(--muted);">الموردون</a> /
+  <strong>{{ supplier.name }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('suppliers.edit', id=supplier.id) }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-edit"/></svg>
+  تعديل
+</a>
+<a href="{{ url_for('purchases.add') }}" class="primary-button">
+  <svg class="icon small"><use href="#i-plus"/></svg>
+  <span class="button-text">شراء جديد</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <!-- HERO -->
+  <section style="padding:36px 0 28px; border-bottom:1px solid var(--line); margin-bottom:28px;
+                  display:grid; grid-template-columns:1fr auto; gap:24px; align-items:center;">
+    <div style="display:flex; align-items:center; gap:18px;">
+      <div style="width:62px; height:62px; border-radius:50%; background:var(--ink); color:var(--lime);
+                  display:grid; place-items:center; font-size:22px; font-weight:700; flex:0 0 62px;">
+        {{ supplier.name[:1] }}
+      </div>
+      <div>
+        <h1 style="margin:0; font-size:28px; font-weight:700; letter-spacing:-0.03em;">{{ supplier.name }}</h1>
+        <div style="margin-top:6px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          {% if supplier.type %}
+          <span class="badge badge-muted">{{ supplier.type }}</span>
+          {% endif %}
+          {% if supplier.phone %}
+          <span style="color:var(--muted); font-size:12px;" dir="ltr">📞 {{ supplier.phone }}</span>
+          {% endif %}
+          {% if supplier.email %}
+          <span style="color:var(--muted); font-size:12px;" dir="ltr">✉ {{ supplier.email }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Balance -->
+    {% set bal = supplier.balance | float %}
+    <div style="text-align:center; padding:20px 28px;
+                border-right:4px solid {{ 'var(--red)' if bal > 0 else 'var(--green)' }};">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:6px;">الرصيد المستحق</div>
+      <div style="font-size:28px; font-weight:700; color:{{ 'var(--red)' if bal > 0 else 'var(--green)' }};">
+        {{ "{:,.2f}".format(bal) }}
+      </div>
+      <div style="font-size:11px; color:var(--muted);">{{ currency }}</div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="metrics" style="margin-bottom:28px;">
+    <div class="metric">
+      <div class="metric-title">إجمالي المشتريات</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ "{:,.0f}".format(supplier.total_purchases | float) }}</div>
+      </div>
+      <div class="metric-note">{{ currency }} — مجموع المشتريات</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">المبالغ المدفوعة</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ "{:,.0f}".format(supplier.total_paid | float) }}</div>
+      </div>
+      <div class="metric-note">{{ currency }} — مجموع الدفعات</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">عدد المشتريات</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ purchases | length }}</div>
+      </div>
+      <div class="metric-note">عملية شراء مسجلة</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">عدد الدفعات</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ payments | length }}</div>
+      </div>
+      <div class="metric-note">دفعة مسجلة</div>
+    </div>
+  </section>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:28px;">
+
+    <!-- Supplier Info -->
+    <div class="card">
+      <div class="card-title">بيانات المورد</div>
+      <div style="display:grid; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden;">
+        <div style="background:var(--paper); padding:13px 16px; display:flex; justify-content:space-between;">
+          <span style="font-size:12px; color:var(--muted);">الاسم</span>
+          <span style="font-size:13px; font-weight:600;">{{ supplier.name }}</span>
+        </div>
+        <div style="background:var(--paper); padding:13px 16px; display:flex; justify-content:space-between;">
+          <span style="font-size:12px; color:var(--muted);">النوع</span>
+          <span style="font-size:13px;">{{ supplier.type or '—' }}</span>
+        </div>
+        <div style="background:var(--paper); padding:13px 16px; display:flex; justify-content:space-between;">
+          <span style="font-size:12px; color:var(--muted);">الهاتف</span>
+          <span style="font-size:13px;" dir="ltr">{{ supplier.phone or '—' }}</span>
+        </div>
+        <div style="background:var(--paper); padding:13px 16px; display:flex; justify-content:space-between;">
+          <span style="font-size:12px; color:var(--muted);">البريد</span>
+          <span style="font-size:13px;" dir="ltr">{{ supplier.email or '—' }}</span>
+        </div>
+        <div style="background:var(--paper); padding:13px 16px; display:flex; justify-content:space-between;">
+          <span style="font-size:12px; color:var(--muted);">العنوان</span>
+          <span style="font-size:13px;">{{ supplier.address or '—' }}</span>
+        </div>
+        {% if supplier.notes %}
+        <div style="background:var(--paper); padding:13px 16px;">
+          <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">ملاحظات</div>
+          <div style="font-size:13px; line-height:1.7;">{{ supplier.notes }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent Payments -->
+    <div class="card">
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>الدفعات الأخيرة</span>
+        <a href="{{ url_for('payments.add') }}" class="secondary-button" style="font-size:11px; min-height:32px; padding:0 12px;">
+          <svg class="icon small"><use href="#i-plus"/></svg>
+          دفعة
+        </a>
+      </div>
+      {% if payments %}
+      <div style="display:grid; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden;">
+        {% for p in payments[:6] %}
+        <div style="background:var(--paper); padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:12px; font-weight:600;">{{ p.notes or 'دفعة للمورد' }}</div>
+            <div style="font-size:10px; color:var(--muted);">{{ p.date or (p.created_at[:10] if p.created_at else '—') }}</div>
+          </div>
+          <div style="font-size:14px; font-weight:700; color:var(--red);" dir="ltr">
+            {{ "{:,.2f}".format(p.amount | float) }} {{ currency }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="text-align:center; padding:30px; color:var(--muted); font-size:13px;">
+        لا توجد دفعات مسجلة
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- PURCHASES TABLE -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>مشتريات من المورد</h2>
+        <p>{{ purchases | length }} عملية شراء مسجلة</p>
+      </div>
+      <a href="{{ url_for('purchases.add') }}" class="primary-button">
+        <svg class="icon small"><use href="#i-plus"/></svg>
+        شراء جديد
+      </a>
+    </div>
+
+    <div class="table-wrapper">
+      {% if purchases %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>رقم الشراء</th>
+            <th class="center">عدد الأصناف</th>
+            <th>الإجمالي</th>
+            <th>المدفوع</th>
+            <th>المتبقي</th>
+            <th>الحالة</th>
+            <th>التاريخ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in purchases | sort(attribute='created_at', reverse=True) %}
+          <tr>
+            <td><span style="font-weight:700;">#{{ p.id }}</span></td>
+            <td class="center"><span class="badge badge-muted">{{ p.get('items', []) | length }} صنف</span></td>
+            <td class="number" style="font-weight:600;">{{ "{:,.2f}".format(p.get('total_amount', 0) | float) }} {{ currency }}</td>
+            <td class="number" style="color:var(--green);">{{ "{:,.2f}".format(p.get('paid_amount', 0) | float) }} {{ currency }}</td>
+            <td class="number" style="color:{% if p.get('remaining',0)|float > 0 %}var(--red){% else %}var(--green){% endif %};">{{ "{:,.2f}".format(p.get('remaining', 0) | float) }} {{ currency }}</td>
+            <td>
+              {% if p.status == 'received' %}
+                <span class="badge badge-green">مستلم</span>
+              {% elif p.status == 'pending' %}
+                <span class="badge badge-orange">معلق</span>
+              {% elif p.status == 'cancelled' %}
+                <span class="badge badge-red">ملغي</span>
+              {% else %}
+                <span class="badge badge-muted">{{ p.status or '—' }}</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--muted); font-size:12px;">{{ p.created_at[:10] if p.created_at else '—' }}</td>
+            <td>
+              <div class="td-actions">
+                <a href="{{ url_for('purchases.view', id=p.id) }}" class="icon-button" title="عرض">
+                  <svg class="icon small"><use href="#i-eye"/></svg>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <svg class="icon xlarge" style="margin:0 auto 16px; display:block;"><use href="#i-cart"/></svg>
+        <h3>لا توجد مشتريات من هذا المورد</h3>
+        <p>ابدأ بتسجيل أول عملية شراء</p>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+{% endblock %}

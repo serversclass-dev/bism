@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'تعديل شراء' if action == 'edit' else 'شراء جديد' }} — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('purchases.index') }}" style="color:var(--muted);">المشتريات</a> /
+  <strong>{{ 'تعديل عملية شراء' if action == 'edit' else 'شراء جديد' }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('purchases.index') }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-x"/></svg>
+  إلغاء
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:32px;">
+    <h1>{{ 'تعديل عملية الشراء' if action == 'edit' else 'تسجيل شراء جديد' }}</h1>
+    <p>{{ 'قم بتحديث بيانات عملية الشراء' if action == 'edit' else 'أدخل بيانات البضاعة المشتراة من المورد' }}</p>
+  </section>
+
+  <form method="POST" id="purchaseForm">
+  <div style="display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:start; max-width:1100px;">
+
+    <div>
+      <!-- Supplier -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">المورد</div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="supplier_id">المورد <span style="color:var(--red);">*</span></label>
+          <select class="form-control" id="supplier_id" name="supplier_id" required>
+            <option value="">— اختر المورد —</option>
+            {% for s in suppliers %}
+            <option value="{{ s.id }}"
+                    {{ 'selected' if purchase and purchase.supplier_id == s.id|string else '' }}>
+              {{ s.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Items Table -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:0;">أصناف الشراء</div>
+          <button type="button" onclick="addRow()" class="secondary-button" style="padding:6px 14px; font-size:12px;">
+            <svg class="icon small"><use href="#i-plus"/></svg>
+            إضافة صنف
+          </button>
+        </div>
+
+        <div class="table-wrapper" style="margin:0;">
+          <table class="data-table" id="itemsTable">
+            <thead>
+              <tr>
+                <th style="width:40%;">المنتج</th>
+                <th style="width:20%;">الكمية</th>
+                <th style="width:25%;">سعر الوحدة ({{ currency }})</th>
+                <th style="width:15%;">الإجمالي</th>
+                <th style="width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody">
+              {% if purchase and purchase.get('items') %}
+                {% for item in purchase.get('items', []) %}
+                <tr class="item-row">
+                  <td>
+                    <select class="form-control" name="product_id" required onchange="onProductChange(this)" style="margin:0;">
+                      <option value="">— اختر —</option>
+                      {% for p in products %}
+                      <option value="{{ p.id }}"
+                              data-price="{{ p.default_purchase_price or 0 }}"
+                              {{ 'selected' if item.product_id == p.id|string else '' }}>
+                        {{ p.name }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td>
+                    <input class="form-control" type="number" name="quantity"
+                           value="{{ item.quantity }}" placeholder="0"
+                           step="0.01" min="0" required oninput="calcRow(this)" style="margin:0;"/>
+                  </td>
+                  <td>
+                    <input class="form-control" type="number" name="price"
+                           value="{{ item.price }}" placeholder="0.00"
+                           step="0.01" min="0" required oninput="calcRow(this)" style="margin:0;"/>
+                  </td>
+                  <td class="number row-total" style="font-weight:700; color:var(--green);">
+                    {{ "{:,.2f}".format((item.quantity|float) * (item.price|float)) }}
+                  </td>
+                  <td>
+                    <button type="button" onclick="removeRow(this)" class="icon-button"
+                            style="border-color:rgba(200,77,58,.3); color:var(--red);">
+                      <svg class="icon small"><use href="#i-trash"/></svg>
+                    </button>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <!-- default first row -->
+                <tr class="item-row">
+                  <td>
+                    <select class="form-control" name="product_id" required onchange="onProductChange(this)" style="margin:0;">
+                      <option value="">— اختر —</option>
+                      {% for p in products %}
+                      <option value="{{ p.id }}" data-price="{{ p.default_purchase_price or 0 }}">{{ p.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td>
+                    <input class="form-control" type="number" name="quantity"
+                           value="" placeholder="0" step="0.01" min="0" required oninput="calcRow(this)" style="margin:0;"/>
+                  </td>
+                  <td>
+                    <input class="form-control" type="number" name="price"
+                           value="" placeholder="0.00" step="0.01" min="0" required oninput="calcRow(this)" style="margin:0;"/>
+                  </td>
+                  <td class="number row-total" style="font-weight:700; color:var(--green);">0.00</td>
+                  <td>
+                    <button type="button" onclick="removeRow(this)" class="icon-button"
+                            style="border-color:rgba(200,77,58,.3); color:var(--red);">
+                      <svg class="icon small"><use href="#i-trash"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Grand Total -->
+        <div style="margin-top:16px; padding:16px 20px; background:var(--ink); border-radius:6px;
+                    display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:11px; color:#6b7470; margin-bottom:3px;">إجمالي قيمة الشراء</div>
+            <div style="font-size:11px; color:#4a5450;">مجموع كل الأصناف</div>
+          </div>
+          <div id="grandTotalDisplay" style="font-size:26px; font-weight:700; color:var(--lime);">0.00 {{ currency }}</div>
+        </div>
+      </div>
+
+      <!-- Payment -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">الدفع</div>
+        <div class="form-grid-2">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="paid_amount">المبلغ المدفوع ({{ currency }})</label>
+            <input class="form-control" type="number" id="paid_amount" name="paid_amount"
+                   value="{{ purchase.paid_amount if purchase else '0' }}"
+                   placeholder="0.00" step="0.01" min="0" oninput="calcSummary()"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">المبلغ المتبقي ({{ currency }})</label>
+            <input class="form-control" type="text" id="remaining_display"
+                   value="0.00" readonly
+                   style="background:var(--surface-2); color:var(--red); font-weight:700;"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">حالة الشراء</div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="status">الحالة</label>
+          <select class="form-control" id="status" name="status">
+            <option value="pending"   {{ 'selected' if purchase and purchase.status == 'pending'   else '' }}>معلق</option>
+            <option value="received"  {{ 'selected' if purchase and purchase.status == 'received'  else '' }}>مستلم</option>
+            <option value="cancelled" {{ 'selected' if purchase and purchase.status == 'cancelled' else '' }}>ملغي</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="card" style="margin-bottom:28px;">
+        <div class="card-title">ملاحظات</div>
+        <div class="form-group" style="margin-bottom:0;">
+          <textarea class="form-control" id="notes" name="notes"
+                    placeholder="أي ملاحظات خاصة بهذه العملية..."
+                    style="min-height:80px;">{{ purchase.notes if purchase else '' }}</textarea>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button type="submit" class="primary-button" style="min-width:160px;">
+          <svg class="icon small"><use href="#i-check"/></svg>
+          {{ 'حفظ التعديلات' if action == 'edit' else 'تسجيل الشراء' }}
+        </button>
+        <a href="{{ url_for('purchases.index') }}" class="secondary-button">إلغاء</a>
+        {% if action == 'edit' and purchase %}
+        <form method="POST" action="{{ url_for('purchases.delete', id=purchase.id) }}"
+              onsubmit="return confirm('هل أنت متأكد من حذف هذا السجل؟');"
+              style="margin:0 auto 0 0;">
+          <button type="submit" class="danger-button">
+            <svg class="icon small"><use href="#i-trash"/></svg>
+            حذف
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- SUMMARY SIDEBAR -->
+    <div style="position:sticky; top:24px;">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">ملخص العملية</div>
+        <div style="display:grid; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden; margin-bottom:16px;">
+          <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+            <span style="font-size:11px; color:var(--muted);">عدد الأصناف</span>
+            <span id="sumItems" style="font-size:13px; font-weight:700;">0</span>
+          </div>
+          <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+            <span style="font-size:11px; color:var(--muted);">إجمالي الشراء</span>
+            <span id="sumTotal" style="font-size:13px; font-weight:700; color:var(--green);">0.00</span>
+          </div>
+          <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+            <span style="font-size:11px; color:var(--muted);">المدفوع</span>
+            <span id="sumPaid" style="font-size:13px; font-weight:700; color:var(--green);">0.00</span>
+          </div>
+          <div style="background:var(--paper); padding:12px 14px; display:flex; justify-content:space-between;">
+            <span style="font-size:11px; color:var(--muted);">المتبقي</span>
+            <span id="sumRemaining" style="font-size:13px; font-weight:700; color:var(--red);">0.00</span>
+          </div>
+        </div>
+        <div style="padding:12px 14px; border-radius:6px; background:var(--surface); text-align:center;">
+          <div style="font-size:10px; color:var(--muted); margin-bottom:6px;">الحالة المختارة</div>
+          <div id="statusDisplay" style="font-size:14px; font-weight:700;">معلق</div>
+        </div>
+      </div>
+
+      <div style="padding:16px; border:1px solid var(--line); border-radius:8px; background:rgba(65,105,225,.04);">
+        <div style="font-size:11px; font-weight:700; color:var(--blue); margin-bottom:10px;">💡 ملاحظة</div>
+        <ul style="margin:0; padding-right:16px; font-size:11px; color:var(--muted); line-height:2;">
+          <li>يمكنك إضافة أكثر من صنف في عملية شراء واحدة</li>
+          <li>سيتم تحديث المخزون تلقائياً عند الحفظ</li>
+          <li>سعر الوحدة يُستخدم لحساب تكلفة المبيعات</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+  </form>
+</div>
+
+<!-- Row template (hidden) -->
+<template id="rowTemplate">
+  <tr class="item-row">
+    <td>
+      <select class="form-control" name="product_id" required onchange="onProductChange(this)" style="margin:0;">
+        <option value="">— اختر —</option>
+        {% for p in products %}
+        <option value="{{ p.id }}" data-price="{{ p.default_purchase_price or 0 }}">{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td>
+      <input class="form-control" type="number" name="quantity"
+             placeholder="0" step="0.01" min="0" required oninput="calcRow(this)" style="margin:0;"/>
+    </td>
+    <td>
+      <input class="form-control" type="number" name="price"
+             placeholder="0.00" step="0.01" min="0" required oninput="calcRow(this)" style="margin:0;"/>
+    </td>
+    <td class="number row-total" style="font-weight:700; color:var(--green);">0.00</td>
+    <td>
+      <button type="button" onclick="removeRow(this)" class="icon-button"
+              style="border-color:rgba(200,77,58,.3); color:var(--red);">
+        <svg class="icon small"><use href="#i-trash"/></svg>
+      </button>
+    </td>
+  </tr>
+</template>
+
+<script>
+const CURRENCY = '{{ currency }}';
+
+function getRow(el) { return el.closest('tr.item-row'); }
+
+function calcRow(input) {
+  const row  = getRow(input);
+  const qty  = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
+  const price= parseFloat(row.querySelector('[name="price"]').value)    || 0;
+  const total= qty * price;
+  row.querySelector('.row-total').textContent = total.toLocaleString('ar-DZ', {minimumFractionDigits:2});
+  calcSummary();
+}
+
+function calcSummary() {
+  let grand = 0;
+  let count = 0;
+  document.querySelectorAll('#itemsBody tr.item-row').forEach(row => {
+    const qty   = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
+    const price = parseFloat(row.querySelector('[name="price"]').value)    || 0;
+    grand += qty * price;
+    if (row.querySelector('[name="product_id"]').value) count++;
+  });
+
+  const paid      = parseFloat(document.getElementById('paid_amount').value) || 0;
+  const remaining = grand - paid;
+  const fmt = v => v.toLocaleString('ar-DZ', {minimumFractionDigits:2});
+
+  document.getElementById('grandTotalDisplay').textContent = fmt(grand) + ' ' + CURRENCY;
+  document.getElementById('remaining_display').value       = fmt(remaining);
+  document.getElementById('sumItems').textContent     = count;
+  document.getElementById('sumTotal').textContent     = fmt(grand) + ' ' + CURRENCY;
+  document.getElementById('sumPaid').textContent      = fmt(paid)  + ' ' + CURRENCY;
+  document.getElementById('sumRemaining').textContent = fmt(remaining) + ' ' + CURRENCY;
+  document.getElementById('sumRemaining').style.color = remaining > 0 ? 'var(--red)' : 'var(--green)';
+}
+
+function onProductChange(sel) {
+  const opt   = sel.options[sel.selectedIndex];
+  const price = opt?.dataset?.price;
+  if (price && price !== 'None' && price !== '' && parseFloat(price) > 0) {
+    const row = getRow(sel);
+    row.querySelector('[name="price"]').value = parseFloat(price).toFixed(2);
+    calcRow(row.querySelector('[name="price"]'));
+  }
+}
+
+function addRow() {
+  const tpl  = document.getElementById('rowTemplate');
+  const clone= tpl.content.cloneNode(true);
+  document.getElementById('itemsBody').appendChild(clone);
+  calcSummary();
+}
+
+function removeRow(btn) {
+  const rows = document.querySelectorAll('#itemsBody tr.item-row');
+  if (rows.length <= 1) { alert('يجب أن تحتوي العملية على صنف واحد على الأقل'); return; }
+  getRow(btn).remove();
+  calcSummary();
+}
+
+// Status display
+document.getElementById('status').addEventListener('change', function() {
+  const labels = { pending: 'معلق', received: 'مستلم', cancelled: 'ملغي' };
+  const colors = { pending: 'var(--orange)', received: 'var(--green)', cancelled: 'var(--red)' };
+  const el = document.getElementById('statusDisplay');
+  el.textContent = labels[this.value] || this.value;
+  el.style.color = colors[this.value] || 'var(--ink)';
+});
+
+// Init
+calcSummary();
+</script>
+{% endblock %}

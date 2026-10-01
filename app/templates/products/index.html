@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}المنتجات — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}النظام / <strong>المنتجات</strong>{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('products.add') }}" class="primary-button">
+  <svg class="icon small"><use href="#i-plus"/></svg>
+  <span class="button-text">منتج جديد</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:0;">
+    <h1>المنتجات</h1>
+    <p>إدارة قائمة المنتجات وأسعارها ووحداتها</p>
+  </section>
+
+  <!-- METRICS -->
+  <section class="metrics" style="margin-bottom:0;">
+    <div class="metric">
+      <div class="metric-title">إجمالي المنتجات</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ products | length }}</div>
+      </div>
+      <div class="metric-note">صنف مسجل في قاعدة البيانات</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">متوسط سعر الشراء</div>
+      <div class="metric-row">
+        {% set total_buy = namespace(v=0, c=0) %}
+        {% for p in products %}{% set _bp = p.get('default_purchase_price', p.get('purchase_price', 0))|float %}{% if _bp > 0 %}{% set total_buy.v = total_buy.v + _bp %}{% set total_buy.c = total_buy.c + 1 %}{% endif %}{% endfor %}
+        <div class="metric-number">
+          {% if total_buy.c > 0 %}{{ "{:,.0f}".format(total_buy.v / total_buy.c) }}{% else %}0{% endif %}
+        </div>
+      </div>
+      <div class="metric-note">{{ currency }} — متوسط تكلفة المنتج</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">متوسط سعر البيع</div>
+      <div class="metric-row">
+        {% set total_sell = namespace(v=0, c=0) %}
+        {% for p in products %}{% set _sp = p.get('default_sell_price', p.get('sell_price', 0))|float %}{% if _sp > 0 %}{% set total_sell.v = total_sell.v + _sp %}{% set total_sell.c = total_sell.c + 1 %}{% endif %}{% endfor %}
+        <div class="metric-number">
+          {% if total_sell.c > 0 %}{{ "{:,.0f}".format(total_sell.v / total_sell.c) }}{% else %}0{% endif %}
+        </div>
+      </div>
+      <div class="metric-note">{{ currency }} — متوسط سعر البيع</div>
+    </div>
+  </section>
+
+  <!-- TABLE -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>قائمة المنتجات</h2>
+        <p>{{ products | length }} منتج مسجل</p>
+      </div>
+      <div style="display:flex; gap:9px; align-items:center;">
+        <div style="position:relative;">
+          <svg class="icon small" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;">
+            <use href="#i-search"/>
+          </svg>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="بحث عن منتج..."
+            style="min-height:40px; padding:0 40px 0 14px; border:1px solid var(--line); border-radius:6px;
+                   background:var(--paper); font:inherit; font-size:13px; width:220px; color:var(--ink);"
+            oninput="filterTable()"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      {% if products %}
+      <table class="data-table" id="productsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>اسم المنتج</th>
+            <th>الفئة</th>
+            <th>الوحدة</th>
+            <th>سعر الشراء</th>
+            <th>سعر البيع</th>
+            <th>هامش الربح</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          {% set buy  = p.get('default_purchase_price', p.get('purchase_price', 0)) | float %}
+          {% set sell = p.get('default_sell_price', p.get('sell_price', 0)) | float %}
+          {% set margin = ((sell - buy) / buy * 100) if buy > 0 else 0 %}
+          <tr>
+            <td style="color:var(--muted); font-size:12px;">{{ loop.index }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:11px;">
+                <div style="width:34px; height:34px; border-radius:6px; background:var(--surface-2);
+                            display:grid; place-items:center; flex:0 0 34px;">
+                  <svg class="icon small" style="color:var(--muted);"><use href="#i-box"/></svg>
+                </div>
+                <div>
+                  <div style="font-weight:600; font-size:13px;">{{ p.name }}</div>
+                  {% if p.description %}
+                  <div style="color:var(--muted); font-size:11px;">{{ p.description[:40] }}{% if p.description|length > 40 %}...{% endif %}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td>
+              {% if p.category %}
+                <span class="badge badge-muted">{{ p.category }}</span>
+              {% else %}
+                <span style="color:var(--muted);">—</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--muted); font-size:12px;">{{ p.unit or '—' }}</td>
+            <td class="number">{{ "{:,.2f}".format(buy) }} {{ currency }}</td>
+            <td class="number" style="font-weight:600;">{{ "{:,.2f}".format(sell) }} {{ currency }}</td>
+            <td>
+              {% if margin > 0 %}
+                <span class="badge badge-green">{{ "{:.1f}".format(margin) }}%</span>
+              {% elif margin < 0 %}
+                <span class="badge badge-red">{{ "{:.1f}".format(margin) }}%</span>
+              {% else %}
+                <span style="color:var(--muted);">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="td-actions">
+                <a href="{{ url_for('products.edit', id=p.id) }}" class="icon-button" title="تعديل">
+                  <svg class="icon small"><use href="#i-edit"/></svg>
+                </a>
+                <form method="POST" action="{{ url_for('products.delete', id=p.id) }}"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا المنتج؟');" style="margin:0;">
+                  <button type="submit" class="icon-button" title="حذف"
+                          style="border-color:rgba(200,77,58,.3); color:var(--red);">
+                    <svg class="icon small"><use href="#i-trash"/></svg>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <svg class="icon xlarge" style="margin:0 auto 16px; display:block;"><use href="#i-box"/></svg>
+        <h3>لا توجد منتجات بعد</h3>
+        <p>ابدأ بإضافة منتجك الأول</p>
+        <br>
+        <a href="{{ url_for('products.add') }}" class="primary-button" style="display:inline-flex;">
+          <svg class="icon small"><use href="#i-plus"/></svg>
+          إضافة منتج
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<script>
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('#productsTable tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

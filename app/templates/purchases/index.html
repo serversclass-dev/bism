@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}المشتريات — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}النظام / <strong>المشتريات</strong>{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('purchases.add') }}" class="primary-button">
+  <svg class="icon small"><use href="#i-plus"/></svg>
+  <span class="button-text">شراء جديد</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:0;">
+    <h1>المشتريات</h1>
+    <p>تسجيل ومتابعة عمليات شراء البضاعة من الموردين</p>
+  </section>
+
+  <!-- METRICS -->
+  <section class="metrics" style="margin-bottom:0;">
+    <div class="metric">
+      <div class="metric-title">إجمالي المشتريات</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ purchases | length }}</div>
+      </div>
+      <div class="metric-note">عملية شراء مسجلة</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">إجمالي قيمة الشراء</div>
+      <div class="metric-row">
+        {% set total_p = namespace(v=0) %}
+        {% for p in purchases %}{% set total_p.v = total_p.v + p.get('total_amount',0)|float %}{% endfor %}
+        <div class="metric-number">{{ "{:,.0f}".format(total_p.v) }}</div>
+      </div>
+      <div class="metric-note">{{ currency }} — إجمالي التكاليف</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">مشتريات معلقة</div>
+      <div class="metric-row">
+        {% set pending_count = namespace(v=0) %}
+        {% for p in purchases %}{% if p.get('status') == 'pending' %}{% set pending_count.v = pending_count.v + 1 %}{% endif %}{% endfor %}
+        <div class="metric-number" style="color:var(--orange);">{{ pending_count.v }}</div>
+      </div>
+      <div class="metric-note">بانتظار الاستلام</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">مشتريات مستلمة</div>
+      <div class="metric-row">
+        {% set received_count = namespace(v=0) %}
+        {% for p in purchases %}{% if p.get('status') == 'received' %}{% set received_count.v = received_count.v + 1 %}{% endif %}{% endfor %}
+        <div class="metric-number" style="color:var(--green);">{{ received_count.v }}</div>
+      </div>
+      <div class="metric-note">تم استلامها وإدخالها</div>
+    </div>
+  </section>
+
+  <!-- TABLE -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>قائمة المشتريات</h2>
+        <p>{{ purchases | length }} عملية شراء</p>
+      </div>
+      <div style="display:flex; gap:9px; align-items:center;">
+        <div style="display:flex; gap:3px; padding:3px; background:var(--surface-2); border-radius:4px;">
+          <button class="sf-btn active" data-filter="all"
+            style="border:0; padding:6px 11px; background:var(--paper); color:var(--ink);
+                   font:inherit; font-size:11px; font-weight:700; border-radius:3px; cursor:pointer;">
+            الكل
+          </button>
+          <button class="sf-btn" data-filter="pending"
+            style="border:0; padding:6px 11px; background:transparent; color:var(--muted);
+                   font:inherit; font-size:11px; border-radius:3px; cursor:pointer;">
+            معلق
+          </button>
+          <button class="sf-btn" data-filter="received"
+            style="border:0; padding:6px 11px; background:transparent; color:var(--muted);
+                   font:inherit; font-size:11px; border-radius:3px; cursor:pointer;">
+            مستلم
+          </button>
+          <button class="sf-btn" data-filter="cancelled"
+            style="border:0; padding:6px 11px; background:transparent; color:var(--muted);
+                   font:inherit; font-size:11px; border-radius:3px; cursor:pointer;">
+            ملغي
+          </button>
+        </div>
+        <div style="position:relative;">
+          <svg class="icon small" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;">
+            <use href="#i-search"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="بحث..."
+            style="min-height:40px; padding:0 40px 0 14px; border:1px solid var(--line); border-radius:6px;
+                   background:var(--paper); font:inherit; font-size:13px; width:190px; color:var(--ink);"
+            oninput="applyFilters()"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      {% if purchases %}
+      <table class="data-table" id="purchasesTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المورد</th>
+            <th class="center">عدد الأصناف</th>
+            <th>الإجمالي</th>
+            <th>المدفوع</th>
+            <th>المتبقي</th>
+            <th>الحالة</th>
+            <th>التاريخ</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in purchases %}
+          {% set remaining = p.get('remaining', 0) | float %}
+          <tr data-status="{{ p.status or 'pending' }}">
+            <td><span style="font-weight:700; color:var(--muted); font-size:12px;">#{{ p.id }}</span></td>
+            <td>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:32px; height:32px; border-radius:5px; background:var(--surface-2);
+                            display:grid; place-items:center; flex:0 0 32px;">
+                  <svg class="icon small" style="color:var(--muted);"><use href="#i-truck"/></svg>
+                </div>
+                <span style="font-weight:600; font-size:13px;">{{ p.supplier_name or '—' }}</span>
+              </div>
+            </td>
+            <td class="center">
+              <span class="badge badge-muted">{{ p.get('items', []) | length }} صنف</span>
+            </td>
+            <td class="number" style="font-weight:700;">
+              {{ "{:,.2f}".format(p.get('total_amount', 0) | float) }} {{ currency }}
+            </td>
+            <td class="number" style="color:var(--green);">
+              {{ "{:,.2f}".format(p.get('paid_amount', 0) | float) }} {{ currency }}
+            </td>
+            <td class="number" style="color:{% if remaining > 0 %}var(--red){% else %}var(--green){% endif %}; font-weight:600;">
+              {{ "{:,.2f}".format(remaining) }} {{ currency }}
+            </td>
+            <td>
+              {% set status = p.status or 'pending' %}
+              {% if status == 'received' %}
+                <span class="badge badge-green">مستلم</span>
+              {% elif status == 'pending' %}
+                <span class="badge badge-orange">معلق</span>
+              {% elif status == 'cancelled' %}
+                <span class="badge badge-red">ملغي</span>
+              {% else %}
+                <span class="badge badge-muted">{{ status }}</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--muted); font-size:12px; white-space:nowrap;">
+              {{ p.created_at[:10] if p.created_at else '—' }}
+            </td>
+            <td>
+              <div class="td-actions">
+                <a href="{{ url_for('purchases.view', id=p.id) }}" class="icon-button" title="عرض">
+                  <svg class="icon small"><use href="#i-eye"/></svg>
+                </a>
+                <a href="{{ url_for('purchases.edit', id=p.id) }}" class="icon-button" title="تعديل">
+                  <svg class="icon small"><use href="#i-edit"/></svg>
+                </a>
+                <a href="{{ url_for('purchases.print_bill', id=p.id) }}" class="icon-button" title="طباعة" target="_blank">
+                  <svg class="icon small"><use href="#i-print"/></svg>
+                </a>
+                <form method="POST" action="{{ url_for('purchases.delete', id=p.id) }}"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا السجل؟');" style="margin:0;">
+                  <button type="submit" class="icon-button" title="حذف"
+                          style="border-color:rgba(200,77,58,.3); color:var(--red);">
+                    <svg class="icon small"><use href="#i-trash"/></svg>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <svg class="icon xlarge" style="margin:0 auto 16px; display:block;"><use href="#i-cart"/></svg>
+        <h3>لا توجد مشتريات بعد</h3>
+        <p>ابدأ بتسجيل أول عملية شراء</p>
+        <br>
+        <a href="{{ url_for('purchases.add') }}" class="primary-button" style="display:inline-flex;">
+          <svg class="icon small"><use href="#i-plus"/></svg>
+          تسجيل شراء
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<script>
+let activeFilter = 'all';
+
+document.querySelectorAll('.sf-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sf-btn').forEach(b => {
+      b.style.background  = 'transparent';
+      b.style.color       = 'var(--muted)';
+      b.style.fontWeight  = '400';
+      b.classList.remove('active');
+    });
+    btn.style.background = 'var(--paper)';
+    btn.style.color      = 'var(--ink)';
+    btn.style.fontWeight = '700';
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    applyFilters();
+  });
+});
+
+function applyFilters() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('#purchasesTable tbody tr').forEach(row => {
+    const matchQ = row.textContent.toLowerCase().includes(q);
+    const matchS = activeFilter === 'all' || row.dataset.status === activeFilter;
+    row.style.display = matchQ && matchS ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

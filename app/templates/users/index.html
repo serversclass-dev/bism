@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}الحسابات — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}النظام / <strong>الحسابات</strong>{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('users.add') }}" class="primary-button">
+  <svg class="icon small"><use href="#i-plus"/></svg>
+  <span class="button-text">مستخدم جديد</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:0;">
+    <h1>إدارة الحسابات</h1>
+    <p>إضافة وتعديل حسابات المستخدمين وصلاحياتهم</p>
+  </section>
+
+  <!-- METRICS -->
+  <section class="metrics" style="margin-bottom:0;">
+    <div class="metric">
+      <div class="metric-title">إجمالي المستخدمين</div>
+      <div class="metric-row">
+        <div class="metric-number">{{ users | length }}</div>
+      </div>
+      <div class="metric-note">حساب مسجل في النظام</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">المدراء</div>
+      <div class="metric-row">
+        {% set admins = users | selectattr('role', 'eq', 'admin') | list %}
+        <div class="metric-number" style="color:var(--lime);">{{ admins | length }}</div>
+      </div>
+      <div class="metric-note">حساب بصلاحيات كاملة</div>
+    </div>
+    <div class="metric">
+      <div class="metric-title">المستخدمون العاديون</div>
+      <div class="metric-row">
+        {% set regular = users | selectattr('role', 'ne', 'admin') | list %}
+        <div class="metric-number">{{ regular | length }}</div>
+      </div>
+      <div class="metric-note">حساب بصلاحيات محدودة</div>
+    </div>
+  </section>
+
+  <!-- TABLE -->
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>قائمة المستخدمين</h2>
+        <p>{{ users | length }} مستخدم مسجل</p>
+      </div>
+      <div style="position:relative;">
+        <svg class="icon small" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;">
+          <use href="#i-search"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="بحث..."
+          style="min-height:40px; padding:0 40px 0 14px; border:1px solid var(--line); border-radius:6px;
+                 background:var(--paper); font:inherit; font-size:13px; width:200px; color:var(--ink);"
+          oninput="filterTable()"/>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      {% if users %}
+      <table class="data-table" id="usersTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المستخدم</th>
+            <th>البريد الإلكتروني</th>
+            <th>الدور</th>
+            <th>الصلاحيات</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td style="color:var(--muted); font-size:12px;">{{ loop.index }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:11px;">
+                <div class="avatar"
+                     style="background:{{ 'var(--ink)' if u.role == 'admin' else 'var(--surface-2)' }};
+                            color:{{ 'var(--lime)' if u.role == 'admin' else 'var(--ink)' }};
+                            font-size:12px; width:36px; height:36px; flex:0 0 36px;">
+                  {{ u.name[:2] }}
+                </div>
+                <div>
+                  <div style="font-weight:600; font-size:13px;">{{ u.name }}</div>
+                  {% if u.id == session.user.id %}
+                  <div style="font-size:10px; color:var(--blue);">أنت</div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td style="color:var(--muted); font-size:13px;" dir="ltr">{{ u.email }}</td>
+            <td>
+              {% if u.role == 'admin' %}
+                <span class="badge" style="background:rgba(216,255,87,.15); color:#8a9e00; font-weight:800;">
+                  مدير النظام
+                </span>
+              {% else %}
+                <span class="badge badge-muted">مستخدم</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.role == 'admin' %}
+                <span style="font-size:12px; color:var(--muted);">جميع الصلاحيات</span>
+              {% else %}
+                {% set perms = u.permissions if u.permissions else [] %}
+                {% if perms %}
+                  <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                    {% for p in perms[:3] %}
+                      <span class="badge badge-blue" style="font-size:9px;">{{ p.replace('manage_','').replace('view_','') }}</span>
+                    {% endfor %}
+                    {% if perms | length > 3 %}
+                      <span class="badge badge-muted" style="font-size:9px;">+{{ perms | length - 3 }}</span>
+                    {% endif %}
+                  </div>
+                {% else %}
+                  <span style="font-size:12px; color:var(--muted);">لا صلاحيات</span>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td>
+              <div class="td-actions">
+                <a href="{{ url_for('users.edit', id=u.id) }}" class="icon-button" title="تعديل">
+                  <svg class="icon small"><use href="#i-edit"/></svg>
+                </a>
+                {% if u.id != session.user.id %}
+                <form method="POST" action="{{ url_for('users.delete', id=u.id) }}"
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا المستخدم؟');" style="margin:0;">
+                  <button type="submit" class="icon-button" title="حذف"
+                          style="border-color:rgba(200,77,58,.3); color:var(--red);">
+                    <svg class="icon small"><use href="#i-trash"/></svg>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <svg class="icon xlarge" style="margin:0 auto 16px; display:block;"><use href="#i-users"/></svg>
+        <h3>لا يوجد مستخدمون</h3>
+        <p>أضف أول مستخدم للنظام</p>
+        <br>
+        <a href="{{ url_for('users.add') }}" class="primary-button" style="display:inline-flex;">
+          <svg class="icon small"><use href="#i-plus"/></svg>
+          إضافة مستخدم
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+<script>
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('#usersTable tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

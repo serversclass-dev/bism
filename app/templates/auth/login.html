@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>تسجيل الدخول — {{ company.name if company and company.get('name') else 'BIMS' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <style>
+    :root {
+      --ink:#101418; --ink-2:#1d2429;
+      --paper:#f5f2ea; --surface:#ebe7de; --surface-2:#dfdbd1;
+      --line:#d2cec4; --muted:#777b76;
+      --lime:#d8ff57; --blue:#4169e1; --green:#258158; --red:#c84d3a;
+      --font:"IBM Plex Sans Arabic",Arial,sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;}
+    body{
+      background:var(--paper);
+      color:var(--ink);
+      font-family:var(--font);
+      font-size:14px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+      padding:24px;
+    }
+    button,input,select,textarea{font:inherit;}
+    button{cursor:pointer;}
+    a{color:inherit;text-decoration:none;}
+
+    /* ICON SPRITE */
+    .icon{width:20px;height:20px;flex:0 0 20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+    /* WRAPPER */
+    .login-wrap{
+      display:flex;
+      width:100%;
+      max-width:860px;
+      min-height:560px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+      box-shadow:0 24px 80px rgba(16,20,24,.12);
+      opacity:0;
+      transform:translateY(20px);
+    }
+
+    /* LEFT PANEL — brand */
+    .login-panel{
+      flex:1;
+      background:var(--ink);
+      color:white;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:52px 44px;
+      text-align:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .login-panel::before{
+      content:'';
+      position:absolute;inset:0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+      background-size:44px 44px;
+      pointer-events:none;
+    }
+    .login-panel::after{
+      content:'';
+      position:absolute;
+      width:320px;height:320px;
+      border-radius:50%;
+      background:var(--lime);
+      opacity:.06;
+      bottom:-120px;left:-80px;
+      pointer-events:none;
+    }
+    .panel-logo{
+      width:90px;height:90px;
+      border-radius:16px;
+      margin-bottom:28px;
+      position:relative;z-index:1;
+      background:white;
+      display:flex;align-items:center;justify-content:center;
+      padding:6px;
+      flex:0 0 90px;
+    }
+    .panel-logo img{
+      width:100%;height:100%;
+      object-fit:contain;
+      border-radius:10px;
+    }
+    .panel-logo svg{
+      width:100%;height:100%;
+      border-radius:10px;
+    }
+    .panel-title{
+      font-size:24px;font-weight:700;
+      letter-spacing:-0.03em;
+      line-height:1.3;
+      position:relative;z-index:1;
+    }
+    .panel-title span{color:var(--lime);}
+    .panel-sub{
+      margin-top:12px;
+      color:#858c88;
+      font-size:13px;
+      line-height:1.6;
+      position:relative;z-index:1;
+    }
+    .panel-dots{
+      display:flex;gap:8px;
+      margin-top:40px;
+      position:relative;z-index:1;
+    }
+    .panel-dot{
+      width:8px;height:8px;border-radius:50%;
+      background:rgba(255,255,255,.15);
+    }
+    .panel-dot.active{background:var(--lime);width:24px;border-radius:4px;}
+    .panel-contacts{
+      margin-top:32px;
+      display:flex;flex-direction:column;gap:8px;
+      position:relative;z-index:1;
+    }
+    .panel-contact{
+      display:flex;align-items:center;gap:8px;
+      color:#858c88;font-size:12px;
+      direction:ltr;
+    }
+
+    /* RIGHT PANEL — form */
+    .login-form-wrap{
+      width:370px;flex:0 0 370px;
+      background:var(--paper);
+      display:flex;flex-direction:column;
+      padding:48px 40px;
+    }
+    .form-head{margin-bottom:32px;}
+    .form-head h1{
+      font-size:22px;font-weight:700;
+      letter-spacing:-0.03em;
+      margin:0 0 6px;
+    }
+    .form-head p{margin:0;color:var(--muted);font-size:13px;}
+
+    /* ALERTS */
+    .alert{
+      padding:12px 14px;
+      border-radius:6px;
+      font-size:12px;
+      margin-bottom:20px;
+      display:flex;align-items:flex-start;gap:9px;
+      border:1px solid transparent;
+    }
+    .alert-danger{
+      background:rgba(200,77,58,.08);
+      border-color:rgba(200,77,58,.25);
+      color:var(--red);
+    }
+    .alert-success{
+      background:rgba(37,129,88,.08);
+      border-color:rgba(37,129,88,.25);
+      color:var(--green);
+    }
+
+    /* FORM */
+    .form-group{margin-bottom:18px;}
+    .form-label{
+      display:block;
+      margin-bottom:7px;
+      font-size:11px;font-weight:600;
+      color:var(--ink);
+      letter-spacing:.02em;
+      text-transform:uppercase;
+    }
+    .input-wrap{position:relative;}
+    .form-control{
+      width:100%;min-height:44px;
+      padding:0 14px 0 42px;
+      border:1px solid var(--line);
+      border-radius:6px;
+      background:var(--paper);
+      color:var(--ink);
+      font-size:13px;
+      transition:border-color .15s,box-shadow .15s;
+    }
+    .form-control:focus{
+      border-color:var(--ink);
+      outline:none;
+      box-shadow:0 0 0 3px rgba(16,20,24,.08);
+    }
+    .form-control::placeholder{color:var(--muted);opacity:.7;}
+    .input-icon{
+      position:absolute;
+      top:50%;left:14px;
+      transform:translateY(-50%);
+      color:var(--muted);
+      pointer-events:none;
+      display:flex;
+    }
+    .toggle-pass{
+      position:absolute;
+      top:50%;left:14px;
+      transform:translateY(-50%);
+      color:var(--muted);
+      cursor:pointer;
+      display:flex;
+      transition:color .15s;
+    }
+    .toggle-pass:hover{color:var(--ink);}
+
+    /* REMEMBER ROW */
+    .remember-row{
+      display:flex;align-items:center;
+      margin-bottom:24px;
+    }
+    .check-wrap{display:flex;align-items:center;gap:8px;cursor:pointer;}
+    .check-wrap input[type=checkbox]{
+      width:16px;height:16px;
+      accent-color:var(--ink);
+      cursor:pointer;
+    }
+    .check-label{font-size:12px;color:var(--muted);cursor:pointer;}
+
+    /* SUBMIT */
+    .submit-btn{
+      width:100%;min-height:46px;
+      display:flex;align-items:center;justify-content:center;gap:9px;
+      border:0;border-radius:6px;
+      background:var(--ink);
+      color:white;
+      font-weight:700;font-size:14px;
+      transition:background .15s,transform .1s;
+      cursor:pointer;
+      position:relative;overflow:hidden;
+    }
+    .submit-btn:hover{background:var(--ink-2);}
+    .submit-btn:active{transform:scale(.98);}
+    .submit-btn.loading{pointer-events:none;opacity:.75;}
+    .submit-accent{
+      height:3px;
+      background:var(--lime);
+      border-radius:0 0 4px 4px;
+      margin-top:-2px;
+      transform:scaleX(0);
+      transform-origin:right;
+    }
+
+    /* FOOTER */
+    .form-divider{border:none;border-top:1px solid var(--line);margin:28px 0;}
+    .form-footer{margin-top:auto;text-align:center;font-size:11px;color:var(--muted);}
+
+    /* RIPPLE */
+    .ripple-el{
+      position:absolute;border-radius:50%;
+      background:rgba(255,255,255,.2);
+      transform:scale(0);
+      animation:ripple .55s linear;
+      pointer-events:none;
+    }
+    @keyframes ripple{to{transform:scale(4);opacity:0;}}
+
+    /* SPINNER */
+    .spinner{
+      width:16px;height:16px;
+      border:2px solid rgba(255,255,255,.3);
+      border-top-color:white;
+      border-radius:50%;
+      animation:spin .7s linear infinite;
+      flex:0 0 16px;
+    }
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    /* RESPONSIVE */
+    @media(max-width:760px){
+      body{padding:16px;}
+      .login-wrap{flex-direction:column;min-height:auto;}
+      .login-panel{
+        padding:28px 24px;
+        flex-direction:row;flex-wrap:wrap;
+        justify-content:flex-start;text-align:right;gap:16px;
+      }
+      .login-panel::after{display:none;}
+      .panel-logo{width:52px;height:52px;flex:0 0 52px;margin-bottom:0;}
+      .panel-title{font-size:16px;}
+      .panel-sub,.panel-dots,.panel-contacts{display:none;}
+      .login-form-wrap{width:100%;flex:none;padding:28px 24px;}
+    }
+    @media(max-width:400px){
+      .login-form-wrap{padding:22px 16px;}
+      .form-head h1{font-size:18px;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ICON SPRITE -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></symbol>
+    <symbol id="i-login" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.59 3.35 2 2 0 0 1 3.56 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.56a16 16 0 0 0 6 6l.85-.85a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  </defs>
+</svg>
+
+<div class="login-wrap" id="loginWrap">
+
+  <!-- LEFT: BRAND PANEL -->
+  <div class="login-panel">
+    <div class="panel-logo">
+      {% if company and company.get('logo') %}
+        <img src="{{ company.logo }}" alt="{{ company.name }}"/>
+      {% else %}
+        <svg viewBox="0 0 100 100">
+          <rect x="3" y="3" width="94" height="94" rx="18" fill="#d8ff57"/>
+          <path d="M26 67V33h12v22l11-22h13L50 55l14 12H47L38 56v11H26Z" fill="#101418"/>
+          <path d="M67 33h8v34h-8z" fill="#101418"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="panel-title">
+        {{ company.name if company and company.get('name') else 'BIMS' }}
+      </div>
+      <p class="panel-sub">نظام إدارة الوساطة التجارية</p>
+    </div>
+    <div class="panel-dots">
+      <div class="panel-dot active"></div>
+      <div class="panel-dot"></div>
+      <div class="panel-dot"></div>
+    </div>
+    {% if company and company.get('phone') %}
+    <div class="panel-contacts">
+      <div class="panel-contact">
+        <svg class="icon" style="width:14px;height:14px;flex:0 0 14px;stroke:var(--lime)"><use href="#i-phone"/></svg>
+        <span>{{ company.phone }}</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- RIGHT: FORM -->
+  <div class="login-form-wrap">
+    <div class="form-head">
+      <h1>تسجيل الدخول</h1>
+      <p>أدخل بياناتك للوصول إلى لوحة التحكم</p>
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ cat }}">
+            {% if cat == 'danger' %}
+              <svg class="icon" style="width:15px;height:15px;flex:0 0 15px;margin-top:1px;"><use href="#i-alert"/></svg>
+            {% else %}
+              <svg class="icon" style="width:15px;height:15px;flex:0 0 15px;margin-top:1px;"><use href="#i-check"/></svg>
+            {% endif %}
+            <span>{{ msg }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm" novalidate>
+
+      <!-- Username -->
+      <div class="form-group">
+        <label class="form-label" for="username">اسم المستخدم</label>
+        <div class="input-wrap">
+          <input
+            type="text" id="username" name="username"
+            class="form-control" dir="ltr"
+            placeholder="username"
+            autocomplete="username" required
+            value="{{ request.form.get('username', '') }}"
+          />
+          <span class="input-icon">
+            <svg class="icon"><use href="#i-user"/></svg>
+          </span>
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label class="form-label" for="password">كلمة المرور</label>
+        <div class="input-wrap">
+          <input
+            type="password" id="password" name="password"
+            class="form-control" dir="ltr"
+            placeholder="••••••••"
+            autocomplete="current-password" required
+          />
+          <span class="toggle-pass" id="togglePass" title="إظهار / إخفاء">
+            <svg class="icon" id="eyeIcon"><use href="#i-eye"/></svg>
+          </span>
+        </div>
+      </div>
+
+      <!-- Remember me -->
+      <div class="remember-row">
+        <label class="check-wrap">
+          <input type="checkbox" id="remember" name="remember"/>
+          <span class="check-label">تذكّرني (تبقى مسجّلاً حتى بعد إغلاق المتصفح)</span>
+        </label>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="submit-btn" id="loginBtn">
+        <svg class="icon" style="width:18px;height:18px;flex:0 0 18px;"><use href="#i-login"/></svg>
+        <span id="btnText">تسجيل الدخول</span>
+      </button>
+      <div class="submit-accent" id="submitAccent"></div>
+
+    </form>
+
+    <hr class="form-divider"/>
+
+    <div class="form-footer">
+      &copy; {{ 2025 }} جميع الحقوق محفوظة &nbsp;·&nbsp;
+      {{ company.name if company and company.get('name') else 'BIMS' }} v2.0
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Animate card in
+  gsap.to('#loginWrap', { opacity:1, y:0, duration:.6, ease:'power3.out', delay:.1 });
+
+  // Accent bar on hover
+  const btn    = document.getElementById('loginBtn');
+  const accent = document.getElementById('submitAccent');
+  btn.addEventListener('mouseenter', () =>
+    gsap.to(accent, { scaleX:1, duration:.3, ease:'power2.out', transformOrigin:'right' }));
+  btn.addEventListener('mouseleave', () =>
+    gsap.to(accent, { scaleX:0, duration:.25, ease:'power2.in', transformOrigin:'left' }));
+
+  // Ripple
+  btn.addEventListener('click', function(e) {
+    const rect = this.getBoundingClientRect();
+    const r    = document.createElement('span');
+    r.className = 'ripple-el';
+    const d = Math.max(rect.width, rect.height);
+    r.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX-rect.left-d/2}px;top:${e.clientY-rect.top-d/2}px;`;
+    this.appendChild(r);
+    r.addEventListener('animationend', () => r.remove());
+  });
+
+  // Password toggle
+  document.getElementById('togglePass').addEventListener('click', function() {
+    const pw   = document.getElementById('password');
+    const icon = document.getElementById('eyeIcon');
+    const show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    icon.querySelector('use').setAttribute('href', show ? '#i-eye-off' : '#i-eye');
+  });
+
+  // Loading state
+  document.getElementById('loginForm').addEventListener('submit', function() {
+    btn.classList.add('loading');
+    btn.querySelector('svg use').setAttribute('href', '');
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    btn.innerHTML = '';
+    btn.appendChild(spinner);
+    const t = document.createElement('span');
+    t.textContent = 'جاري التحقق...';
+    btn.appendChild(t);
+  });
+</script>
+
+</body>
+</html>

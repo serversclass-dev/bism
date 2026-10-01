@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'تعديل مورد' if action == 'edit' else 'إضافة مورد' }} — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('suppliers.index') }}" style="color:var(--muted);">الموردون</a> /
+  <strong>{{ 'تعديل مورد' if action == 'edit' else 'مورد جديد' }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('suppliers.index') }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-x"/></svg>
+  إلغاء
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:32px;">
+    <h1>{{ 'تعديل بيانات المورد' if action == 'edit' else 'إضافة مورد جديد' }}</h1>
+    <p>{{ 'قم بتحديث بيانات المورد أدناه' if action == 'edit' else 'أدخل بيانات المورد الجديد' }}</p>
+  </section>
+
+  <form method="POST" style="max-width:680px;">
+
+    <!-- Basic Info -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">البيانات الأساسية</div>
+
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="name">اسم المورد <span style="color:var(--red);">*</span></label>
+          <input
+            class="form-control"
+            type="text"
+            id="name"
+            name="name"
+            value="{{ supplier.name if supplier else '' }}"
+            placeholder="أدخل اسم المورد"
+            required
+          />
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="type">نوع المورد</label>
+          <select class="form-control" id="type" name="type">
+            <option value="">— اختر النوع —</option>
+            {% set types = ['شركة', 'مصنع', 'تاجر جملة', 'مستورد', 'فرد'] %}
+            {% for t in types %}
+            <option value="{{ t }}" {{ 'selected' if supplier and supplier.type == t else '' }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact Info -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">بيانات التواصل</div>
+
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="phone">رقم الهاتف</label>
+          <input
+            class="form-control"
+            type="text"
+            id="phone"
+            name="phone"
+            value="{{ supplier.phone if supplier else '' }}"
+            placeholder="05XXXXXXXX"
+            dir="ltr"
+          />
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="email">البريد الإلكتروني</label>
+          <input
+            class="form-control"
+            type="email"
+            id="email"
+            name="email"
+            value="{{ supplier.email if supplier else '' }}"
+            placeholder="example@supplier.com"
+            dir="ltr"
+          />
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:16px; margin-bottom:0;">
+        <label class="form-label" for="address">العنوان</label>
+        <input
+          class="form-control"
+          type="text"
+          id="address"
+          name="address"
+          value="{{ supplier.address if supplier else '' }}"
+          placeholder="المدينة، الحي، الشارع..."
+        />
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="card" style="margin-bottom:28px;">
+      <div class="card-title">ملاحظات</div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="notes">ملاحظات إضافية</label>
+        <textarea
+          class="form-control"
+          id="notes"
+          name="notes"
+          placeholder="أي ملاحظات خاصة بهذا المورد..."
+          style="min-height:100px;"
+        >{{ supplier.notes if supplier else '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; gap:12px; align-items:center;">
+      <button type="submit" class="primary-button" style="min-width:160px;">
+        <svg class="icon small"><use href="#i-check"/></svg>
+        {{ 'حفظ التعديلات' if action == 'edit' else 'إضافة المورد' }}
+      </button>
+      <a href="{{ url_for('suppliers.index') }}" class="secondary-button">إلغاء</a>
+
+      {% if action == 'edit' and supplier %}
+      <form method="POST" action="{{ url_for('suppliers.delete', id=supplier.id) }}"
+            onsubmit="return confirm('هل أنت متأكد من حذف هذا المورد؟ لا يمكن التراجع.');"
+            style="margin:0 auto 0 0;">
+        <button type="submit" class="danger-button">
+          <svg class="icon small"><use href="#i-trash"/></svg>
+          حذف المورد
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+  </form>
+</div>
+{% endblock %}

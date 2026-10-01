@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <title>{% block title %}نظام إدارة الوساطة التجارية{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <style>
+    :root {
+      --ink:#101418; --ink-2:#1d2429;
+      --paper:#f5f2ea; --surface:#ebe7de; --surface-2:#dfdbd1;
+      --line:#d2cec4; --muted:#777b76;
+      --lime:#d8ff57; --blue:#4169e1; --green:#258158; --red:#c84d3a; --orange:#d88925;
+      --font:"IBM Plex Sans Arabic",Arial,sans-serif;
+      --sidebar:245px;
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;padding:0;height:100%;}
+    body{background:var(--paper);color:var(--ink);font-family:var(--font);font-size:14px;overflow-x:hidden;}
+    button,input,select,textarea{font:inherit;}
+    button{cursor:pointer;}
+    a{color:inherit;text-decoration:none;}
+
+    /* ICONS */
+    .icon{width:24px;height:24px;flex:0 0 24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+    .icon.small{width:18px;height:18px;flex-basis:18px;}
+    .icon.large{width:30px;height:30px;flex-basis:30px;}
+    .icon.xlarge{width:38px;height:38px;flex-basis:38px;}
+
+    /* LOADER */
+    .loader{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--ink);color:white;overflow:hidden;}
+    .loader-inner{width:min(390px,calc(100vw - 50px));display:flex;flex-direction:column;align-items:center;text-align:center;}
+    .loader-logo{width:120px;height:120px;display:grid;place-items:center;margin-bottom:28px;opacity:0;transform:translateY(12px) scale(.92);}
+    .loader-logo svg{width:120px;height:120px;border-radius:18px;}
+    .loader-logo img{width:120px;height:120px;border-radius:18px;object-fit:contain;background:white;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.25);}
+    .loader-company{margin:0;font-size:25px;font-weight:700;letter-spacing:-0.03em;opacity:0;transform:translateY(10px);}
+    .loader-subtitle{margin:7px 0 0;color:#858d89;font-size:11px;opacity:0;transform:translateY(8px);}
+    .loader-progress{width:100%;height:2px;margin-top:43px;background:#2c3338;overflow:hidden;opacity:0;}
+    .loader-progress-bar{width:0;height:100%;background:var(--lime);}
+    .loader-status{margin-top:13px;color:#737b77;font-size:9px;opacity:0;}
+
+    /* LAYOUT — key: sidebar fixed, main scrollable */
+    .app{display:flex;min-height:100vh;}
+
+    /* SIDEBAR — fixed, never moves */
+    .sidebar{
+      width:var(--sidebar);flex:0 0 var(--sidebar);
+      height:100vh;position:fixed;top:0;right:0;
+      background:var(--ink);color:white;
+      display:flex;flex-direction:column;
+      padding:27px 18px;overflow-y:auto;
+      z-index:200;
+    }
+
+    /* MAIN — offset by sidebar width, scrolls independently */
+    .main-area{
+      flex:1;
+      margin-right:var(--sidebar);
+      min-height:100vh;
+      display:flex;flex-direction:column;
+    }
+
+    /* TOPBAR — sticky within main */
+    .topbar{
+      position:sticky;top:0;z-index:100;
+      height:74px;flex:0 0 74px;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 44px;
+      border-bottom:1px solid var(--line);
+      background:var(--paper);
+    }
+    .breadcrumb{color:var(--muted);font-size:13px;}
+    .breadcrumb strong{color:var(--ink);}
+    .top-actions{display:flex;align-items:center;gap:9px;}
+
+    /* CONTENT */
+    .content-area{flex:1;padding:0 44px 70px;}
+
+    /* BRAND */
+    .brand { display:flex; align-items:center; gap:14px; padding:0 10px; margin-bottom:36px; }
+    .brand-logo { width:56px; height:56px; flex:0 0 56px; }
+    .brand-logo svg,.brand-logo img { width:100%; height:100%; border-radius:10px; object-fit:contain; background:white; padding:3px; }
+    .brand-text{font-size:17px;font-weight:700;line-height:1.3;}
+    .brand-sub{color:#858c88;font-size:10px;margin-top:2px;}
+
+    /* NAV */
+    .nav-section{color:#555e5a;font-size:10px;padding:0 13px;margin:16px 0 7px;letter-spacing:.04em;text-transform:uppercase;}
+    .nav{display:grid;gap:3px;}
+    .nav-button{
+      width:100%;min-height:48px;
+      display:flex;align-items:center;gap:13px;
+      padding:0 13px;border:0;border-radius:7px;
+      background:transparent;color:#aeb4b0;
+      text-align:right;font:inherit;font-size:13px;
+      transition:background .15s,color .15s;
+      cursor:pointer;
+      text-decoration:none;
+    }
+    .nav-button:hover{color:white;background:#1c2227;}
+    .nav-button.active{color:var(--ink);background:var(--lime);font-weight:700;}
+    .nav-label{font-size:13px;}
+
+    /* SIDEBAR BOTTOM */
+    .sidebar-bottom{margin-top:auto;border-top:1px solid #2b3237;padding:18px 10px 4px;}
+    .user{display:flex;align-items:center;gap:10px;}
+    .avatar{width:36px;height:36px;border-radius:50%;background:#343d43;display:grid;place-items:center;font-size:11px;font-weight:700;flex:0 0 36px;}
+    .user-name{color:white;font-size:12px;font-weight:600;}
+    .user-role{color:#808783;font-size:10px;margin-top:2px;}
+    .logout-btn{margin-top:12px;width:100%;display:flex;align-items:center;gap:9px;padding:0 10px;min-height:38px;border:1px solid #2b3237;border-radius:6px;background:transparent;color:#808783;font-size:12px;font:inherit;cursor:pointer;transition:all .15s;text-decoration:none;}
+    .logout-btn:hover{color:var(--red);border-color:var(--red);background:rgba(200,77,58,.08);}
+
+    /* BUTTONS */
+    .icon-button{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);transition:background .15s;}
+    .icon-button:hover{background:var(--surface);}
+    .primary-button{min-height:40px;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:6px;padding:0 16px;background:var(--ink);color:white;font-weight:600;font-size:13px;transition:background .15s;cursor:pointer;}
+    .primary-button:hover{background:var(--ink-2);}
+    .secondary-button{min-height:40px;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:0 16px;background:transparent;color:var(--ink);font-weight:500;font-size:13px;transition:background .15s;cursor:pointer;}
+    .secondary-button:hover{background:var(--surface);}
+    .danger-button{min-height:40px;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:6px;padding:0 16px;background:var(--red);color:white;font-weight:600;font-size:13px;transition:opacity .15s;cursor:pointer;}
+    .danger-button:hover{opacity:.85;}
+
+    /* PAGE HERO */
+    .page-hero{padding:40px 0 32px;border-bottom:1px solid var(--line);margin-bottom:36px;}
+    .page-hero h1{margin:0;font-size:36px;font-weight:700;letter-spacing:-0.04em;line-height:1.1;}
+    .page-hero p{margin:10px 0 0;color:var(--muted);font-size:14px;}
+
+    /* METRICS */
+    .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:36px;}
+    .metric{padding:22px 20px;border-left:1px solid var(--line);}
+    .metric:last-child{border-left:0;}
+    .metric-title{color:var(--muted);font-size:11px;margin-bottom:14px;}
+    .metric-row{display:flex;align-items:baseline;gap:9px;}
+    .metric-number{font-size:36px;font-weight:700;letter-spacing:-0.05em;}
+    .metric-change{font-size:11px;font-weight:700;color:var(--green);}
+    .metric-change.red{color:var(--red);}
+    .metric-note{color:var(--muted);font-size:10px;margin-top:6px;}
+
+    /* SECTION HEAD */
+    .section-head{padding:30px 0 16px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;}
+    .section-head h2{margin:0;font-size:19px;}
+    .section-head p{margin:4px 0 0;color:var(--muted);font-size:12px;}
+
+    /* TABLE */
+    .table-wrapper{overflow-x:auto;}
+    .data-table{width:100%;min-width:600px;border-collapse:collapse;border-top:1px solid var(--ink);}
+    .data-table th{padding:12px 10px;color:var(--muted);font-size:10px;font-weight:500;text-align:right;border-bottom:1px solid var(--line);}
+    .data-table td{padding:15px 10px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13px;}
+    .data-table tr:hover td{background:rgba(225,221,211,.4);}
+    .data-table td.center{text-align:center;}
+    .data-table td.number{direction:ltr;text-align:left;font-variant-numeric:tabular-nums;}
+    .data-table .td-actions{display:flex;gap:6px;justify-content:flex-end;}
+
+    /* BADGES */
+    .status{display:inline-flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap;}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 7px;}
+    .status-dot.blue{background:var(--blue);}
+    .status-dot.red{background:var(--red);}
+    .badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;}
+    .badge-green{background:rgba(37,129,88,.12);color:var(--green);}
+    .badge-blue{background:rgba(65,105,225,.12);color:var(--blue);}
+    .badge-red{background:rgba(200,77,58,.12);color:var(--red);}
+    .badge-orange{background:rgba(216,137,37,.12);color:var(--orange);}
+    .badge-muted{background:var(--surface-2);color:var(--muted);}
+
+    /* CARD */
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:24px;}
+    .card-title{font-size:15px;font-weight:700;margin:0 0 18px;}
+
+    /* FORMS */
+    .form-group{margin-bottom:20px;}
+    .form-label{display:block;margin-bottom:7px;font-size:12px;font-weight:600;color:var(--ink);}
+    .form-control{width:100%;min-height:42px;padding:0 13px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;transition:border-color .15s;}
+    .form-control:focus{border-color:var(--ink);outline:none;}
+    textarea.form-control{padding:10px 13px;min-height:90px;resize:vertical;}
+    select.form-control{cursor:pointer;}
+    .form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+
+    /* TOAST NOTIFICATIONS */
+    .toast-wrap{position:fixed;top:24px;left:24px;z-index:99999;display:flex;flex-direction:column;gap:10px;pointer-events:none;}
+    .toast{
+      width:min(360px,calc(100vw - 48px));
+      display:flex;align-items:center;gap:12px;
+      padding:14px 15px;
+      background:#ffffff;border:1px solid #dce8e3;
+      box-shadow:0 16px 45px rgba(19,34,56,.14);
+      color:#17252d;
+      font-family:var(--font);
+      opacity:0;visibility:hidden;
+      transform:translateY(-20px) scale(.96);
+      pointer-events:all;
+    }
+    .toast-icon{width:38px;height:38px;flex:0 0 38px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:18px;font-weight:800;color:white;}
+    .toast-icon.success{background:#176b5b;}
+    .toast-icon.danger {background:#c84d3a;}
+    .toast-icon.warning{background:#d88925;}
+    .toast-icon.info   {background:#4169e1;}
+    .toast-content{flex:1;display:flex;flex-direction:column;gap:2px;}
+    .toast-content strong{color:#17252d;font-size:12px;font-weight:800;}
+    .toast-content span{color:#748087;font-size:10px;line-height:1.6;}
+    .toast-close{width:27px;height:27px;display:flex;align-items:center;justify-content:center;padding:0;border:0;background:transparent;color:#9aa3a8;cursor:pointer;font-size:19px;line-height:1;transition:color .2s,background .2s;border-radius:4px;}
+    .toast-close:hover{color:#17252d;background:#f2f5f4;}
+    @media(max-width:600px){.toast-wrap{top:15px;left:16px;right:16px;}.toast{width:auto;}}
+
+    /* DETAIL */
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:28px;}
+    .detail-row{background:var(--paper);padding:14px 18px;display:flex;flex-direction:column;gap:4px;}
+    .detail-label{font-size:11px;color:var(--muted);font-weight:500;}
+    .detail-value{font-size:14px;font-weight:600;}
+
+    /* ITEMS TABLE */
+    .items-table{width:100%;border-collapse:collapse;margin-top:8px;}
+    .items-table th{padding:10px 8px;background:var(--ink);color:white;font-size:11px;font-weight:600;text-align:right;}
+    .items-table td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle;}
+    .items-table .mini-input{width:100%;min-height:36px;padding:0 9px;border:1px solid var(--line);border-radius:5px;background:var(--paper);font-size:12px;color:var(--ink);}
+    .items-table .mini-input:focus{border-color:var(--ink);outline:none;}
+    .remove-row-btn{width:28px;height:28px;border-radius:4px;border:1px solid rgba(200,77,58,.3);background:transparent;color:var(--red);font-size:16px;line-height:1;display:grid;place-items:center;}
+
+    /* EMPTY STATE */
+    .empty-state{text-align:center;padding:70px 20px;}
+    .empty-state h3{margin:0 0 8px;font-size:18px;}
+    .empty-state p{margin:0;color:var(--muted);font-size:13px;}
+
+    /* REVEAL */
+    .reveal-item{opacity:0;transform:translateY(18px);}
+
+    /* ── MOBILE OVERLAY ── */
+    .sidebar-overlay{
+      display:none;
+      position:fixed;inset:0;
+      background:rgba(0,0,0,.55);
+      z-index:190;
+      backdrop-filter:blur(2px);
+    }
+    .sidebar-overlay.open{display:block;}
+
+    /* MOBILE TOGGLE BTN */
+    .mobile-menu-btn{
+      display:none;
+      width:40px;height:40px;
+      border:1px solid var(--line);border-radius:6px;
+      background:transparent;color:var(--ink);
+      align-items:center;justify-content:center;
+      cursor:pointer;flex:0 0 40px;
+    }
+
+    /* MOBILE NAV — hidden, we use drawer sidebar instead */
+    .mobile-nav{display:none;}
+
+    /* RESPONSIVE */
+    @media(max-width:1100px){
+      :root{--sidebar:210px;}
+      .topbar{padding-left:28px;padding-right:28px;}
+      .content-area{padding-left:28px;padding-right:28px;}
+    }
+    @media(max-width:860px){
+      .main-area{margin-right:0;}
+      .mobile-menu-btn{display:flex !important;}
+      .sidebar{
+        transform:translateX(110%);
+        transition:transform .3s cubic-bezier(.4,0,.2,1);
+        z-index:210;
+        box-shadow:-12px 0 40px rgba(0,0,0,.3);
+      }
+      .sidebar.open{transform:translateX(0);}
+      .sidebar-overlay{display:none;}
+      .sidebar-overlay.open{display:block !important;}
+    }
+    @media(max-width:640px){
+      body{padding-bottom:0;}
+      .topbar{height:60px;padding:0 14px;}
+      .content-area{padding:0 14px 50px;}
+      .page-hero{padding:22px 0 18px;}
+      .page-hero h1{font-size:24px;}
+      .page-hero p{font-size:12px;}
+      .form-grid-2,.form-grid-3{grid-template-columns:1fr;}
+      .metrics{grid-template-columns:1fr 1fr;}
+      .metric{padding:16px 12px;}
+      .metric-number{font-size:26px;}
+      .section-head{flex-direction:column;align-items:flex-start;gap:10px;}
+      .card{padding:16px;}
+      .data-table{min-width:480px;}
+      .primary-button .button-text{display:none;}
+      .primary-button{padding:0 12px;}
+    }
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}
+    }
+    @media print{
+      .sidebar,.mobile-nav,.topbar,.flash-container{display:none !important;}
+      .main-area{margin-right:0 !important;}
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- SVG ICONS -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9 21v-6h6v6"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.2 2.5-5 6-5s6 1.8 6 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17 15c2.5.3 4 1.9 4 4.5"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path d="M1 3h13v13H1z"/><path d="M14 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.27 6.96 8.73 5.05 8.73-5.05"/><path d="M12 22.08V12"/></symbol>
+    <symbol id="i-warehouse" viewBox="0 0 24 24"><path d="M22 20v-9L12 3 2 11v9h20z"/><path d="M2 11h20"/><path d="M9 20v-5h6v5"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v4h6V3"/><path d="M9 12h6"/><path d="M9 16h4"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
+    <symbol id="i-money" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M7 10v4"/><path d="M17 10v4"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+  </defs>
+</svg>
+
+{% if session.user %}
+{% set is_admin = session.user.role == 'admin' %}
+{% set perms = session.user.permissions %}
+
+<!-- FIRST-VISIT LOADER -->
+<div class="loader" id="loader" style="display:none;">
+  <div class="loader-inner">
+    <div class="loader-logo" id="loaderLogo">
+      {% if company and company.get('logo') %}
+        <img src="{{ company.logo }}"/>
+      {% else %}
+        <svg viewBox="0 0 100 100">
+          <rect x="3" y="3" width="94" height="94" rx="18" fill="#d8ff57"/>
+          <path d="M26 67V33h12v22l11-22h13L50 55l14 12H47L38 56v11H26Z" fill="#101418"/>
+          <path d="M67 33h8v34h-8z" fill="#101418"/>
+        </svg>
+      {% endif %}
+    </div>
+    <h1 class="loader-company" id="loaderCompany">{{ company.name if company and company.get('name') else 'BIMS' }}</h1>
+    <p class="loader-subtitle">نظام إدارة الوساطة التجارية</p>
+    <div class="loader-progress" id="loaderProgress">
+      <div class="loader-progress-bar" id="loaderProgressBar"></div>
+    </div>
+    <div class="loader-status" id="loaderStatus">جاري تجهيز النظام...</div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- MAIN AREA (left side, scrolls) -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <button class="mobile-menu-btn" onclick="openSidebar()" aria-label="القائمة">
+          <svg class="icon"><use href="#i-menu"/></svg>
+        </button>
+        <div class="breadcrumb">
+          {% block breadcrumb %}النظام / <strong>الرئيسية</strong>{% endblock %}
+        </div>
+      </div>
+      <div class="top-actions">
+        {% block top_actions %}{% endblock %}
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content-area">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <script>
+          window.__flashMessages__ = {{ messages | tojson }};
+        </script>
+        {% endif %}
+      {% endwith %}
+
+      <div class="reveal-item">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+
+  </div><!-- .main-area -->
+
+  <!-- SIDEBAR (right side, fixed — never reloads) -->
+  <aside class="sidebar">
+    <div>
+      <div class="brand">
+        <div class="brand-logo">
+          {% if company and company.get('logo') %}
+            <img src="{{ company.logo }}"/>
+          {% else %}
+            <svg viewBox="0 0 100 100">
+              <rect x="3" y="3" width="94" height="94" rx="18" fill="#d8ff57"/>
+              <path d="M26 67V33h12v22l11-22h13L50 55l14 12H47L38 56v11H26Z" fill="#101418"/>
+              <path d="M67 33h8v34h-8z" fill="#101418"/>
+            </svg>
+          {% endif %}
+        </div>
+        <div>
+          <div class="brand-text">{{ company.name if company and company.get('name') else 'BIMS' }}</div>
+          <div class="brand-sub">نظام إدارة الوساطة</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        {% if is_admin or 'view_dashboard' in perms %}
+        <a href="{{ url_for('dashboard.index') }}"
+           class="nav-button {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+          <svg class="icon"><use href="#i-home"/></svg>
+          <span class="nav-label">لوحة التحكم</span>
+        </a>
+        {% endif %}
+      </nav>
+
+      {% if is_admin or 'manage_clients' in perms or 'manage_suppliers' in perms %}
+      <div class="nav-section">الأطراف</div>
+      <nav class="nav">
+        {% if is_admin or 'manage_clients' in perms %}
+        <a href="{{ url_for('clients.index') }}"
+           class="nav-button {% if request.endpoint and 'clients' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-users"/></svg>
+          <span class="nav-label">العملاء</span>
+        </a>
+        {% endif %}
+        {% if is_admin or 'manage_suppliers' in perms %}
+        <a href="{{ url_for('suppliers.index') }}"
+           class="nav-button {% if request.endpoint and 'suppliers' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-truck"/></svg>
+          <span class="nav-label">الموردون</span>
+        </a>
+        {% endif %}
+      </nav>
+      {% endif %}
+
+      {% if is_admin or 'manage_products' in perms or 'manage_inventory' in perms %}
+      <div class="nav-section">المنتجات</div>
+      <nav class="nav">
+        {% if is_admin or 'manage_products' in perms %}
+        <a href="{{ url_for('products.index') }}"
+           class="nav-button {% if request.endpoint and 'products' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-box"/></svg>
+          <span class="nav-label">المنتجات</span>
+        </a>
+        {% endif %}
+        {% if is_admin or 'manage_inventory' in perms %}
+        <a href="{{ url_for('inventory.index') }}"
+           class="nav-button {% if request.endpoint and 'inventory' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-warehouse"/></svg>
+          <span class="nav-label">المخزون</span>
+        </a>
+        {% endif %}
+      </nav>
+      {% endif %}
+
+      <div class="nav-section">العمليات</div>
+      <nav class="nav">
+        <a href="{{ url_for('orders.index') }}"
+           class="nav-button {% if request.endpoint and 'orders' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-clipboard"/></svg>
+          <span class="nav-label">الطلبات</span>
+        </a>
+        {% if is_admin or 'manage_purchases' in perms %}
+        <a href="{{ url_for('purchases.index') }}"
+           class="nav-button {% if request.endpoint and 'purchases' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-cart"/></svg>
+          <span class="nav-label">المشتريات</span>
+        </a>
+        {% endif %}
+        {% if is_admin or 'manage_payments' in perms %}
+        <a href="{{ url_for('payments.index') }}"
+           class="nav-button {% if request.endpoint and 'payments' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-money"/></svg>
+          <span class="nav-label">المدفوعات</span>
+        </a>
+        {% endif %}
+      </nav>
+
+      {% if is_admin %}
+      <div class="nav-section">الإدارة</div>
+      <nav class="nav">
+        <a href="{{ url_for('users.index') }}"
+           class="nav-button {% if request.endpoint and 'users' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-users"/></svg>
+          <span class="nav-label">الحسابات</span>
+        </a>
+        <a href="{{ url_for('settings.index') }}"
+           class="nav-button {% if request.endpoint and 'settings' in request.endpoint %}active{% endif %}">
+          <svg class="icon"><use href="#i-settings"/></svg>
+          <span class="nav-label">الإعدادات</span>
+        </a>
+      </nav>
+      {% endif %}
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="user">
+        <div class="avatar">{{ session.user.name[:2] }}</div>
+        <div>
+          <div class="user-name">{{ session.user.name }}</div>
+          <div class="user-role">{% if is_admin %}مدير النظام{% else %}مستخدم{% endif %}</div>
+        </div>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+        <svg class="icon small"><use href="#i-logout"/></svg>
+        تسجيل الخروج
+      </a>
+    </div>
+  </aside>
+
+</div><!-- .app -->
+
+<!-- MOBILE NAV -->
+<nav class="mobile-nav">
+  <a href="{{ url_for('dashboard.index') }}" class="{% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+    <svg class="icon"><use href="#i-home"/></svg><span>الرئيسية</span>
+  </a>
+  <a href="{{ url_for('orders.index') }}" class="{% if request.endpoint and 'orders' in request.endpoint %}active{% endif %}">
+    <svg class="icon"><use href="#i-clipboard"/></svg><span>الطلبات</span>
+  </a>
+  <a href="{{ url_for('clients.index') }}" class="{% if request.endpoint and 'clients' in request.endpoint %}active{% endif %}">
+    <svg class="icon"><use href="#i-users"/></svg><span>العملاء</span>
+  </a>
+  <a href="{{ url_for('products.index') }}" class="{% if request.endpoint and 'products' in request.endpoint %}active{% endif %}">
+    <svg class="icon"><use href="#i-box"/></svg><span>المنتجات</span>
+  </a>
+  {% if is_admin %}
+  <a href="{{ url_for('settings.index') }}" class="{% if request.endpoint and 'settings' in request.endpoint %}active{% endif %}">
+    <svg class="icon"><use href="#i-settings"/></svg><span>المزيد</span>
+  </a>
+  {% else %}
+  <a href="{{ url_for('payments.index') }}" class="{% if request.endpoint and 'payments' in request.endpoint %}active{% endif %}">
+    <svg class="icon"><use href="#i-money"/></svg><span>المدفوعات</span>
+  </a>
+  {% endif %}
+</nav>
+
+<script>
+// ── MOBILE SIDEBAR ──
+function openSidebar() {
+  document.querySelector('.sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.querySelectorAll('.nav-button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (window.innerWidth <= 860) closeSidebar();
+  });
+});
+
+// First-visit loader only
+const LOADER_KEY = 'bims_v2_loaded';
+const loaderEl   = document.getElementById('loader');
+
+if (!sessionStorage.getItem(LOADER_KEY)) {
+  sessionStorage.setItem(LOADER_KEY, '1');
+  loaderEl.style.display = 'flex';
+  const reduced = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const logo = document.getElementById('loaderLogo');
+  const comp = document.getElementById('loaderCompany');
+  const sub  = document.querySelector('.loader-subtitle');
+  const prog = document.getElementById('loaderProgress');
+  const bar  = document.getElementById('loaderProgressBar');
+  const stat = document.getElementById('loaderStatus');
+
+  if (reduced) {
+    gsap.set([logo,comp,sub,prog,stat],{opacity:1,y:0,scale:1});
+    gsap.set(bar,{width:'100%'});
+    gsap.to(loaderEl,{opacity:0,duration:.2,delay:.3,onComplete:()=>loaderEl.style.display='none'});
+  } else {
+    const tl = gsap.timeline();
+    tl.to(logo,{opacity:1,y:0,scale:1,duration:.7,ease:'power3.out'})
+      .to(comp,{opacity:1,y:0,duration:.5,ease:'power3.out'},'-=.3')
+      .to(sub, {opacity:1,y:0,duration:.4,ease:'power2.out'},'-=.2')
+      .to(prog,{opacity:1,duration:.3},'-=.1')
+      .to(stat,{opacity:1,duration:.25},'-=.1')
+      .to(bar, {width:'100%',duration:1.4,ease:'power2.inOut'})
+      .to(stat,{opacity:0,duration:.2})
+      .to([logo,comp,sub],{y:-8,opacity:0,duration:.3,stagger:.03,ease:'power2.in'})
+      .to(loaderEl,{clipPath:'inset(0 0 100% 0)',duration:.7,ease:'power4.inOut',
+                    onComplete:()=>loaderEl.style.display='none'});
+  }
+}
+
+// Animate content in
+gsap.to('.reveal-item',{opacity:1,y:0,duration:.55,ease:'power2.out',delay:.1});
+
+// ── TOAST SYSTEM ──────────────────────────────────────────
+const toastWrap = document.createElement('div');
+toastWrap.className = 'toast-wrap';
+document.body.appendChild(toastWrap);
+
+const TOAST_ICONS = {
+  success: '✓',
+  danger:  '✕',
+  warning: '!',
+  info:    'i'
+};
+const TOAST_LABELS = {
+  success: 'تمت العملية',
+  danger:  'خطأ',
+  warning: 'تحذير',
+  info:    'معلومة'
+};
+
+function showToast(cat, msg, duration=4500) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.dir = 'rtl';
+  t.innerHTML = `
+    <div class="toast-icon ${cat}">${TOAST_ICONS[cat]||'i'}</div>
+    <div class="toast-content">
+      <strong>${TOAST_LABELS[cat]||cat}</strong>
+      <span>${msg}</span>
+    </div>
+    <button class="toast-close" aria-label="إغلاق">×</button>
+  `;
+  toastWrap.appendChild(t);
+
+  // animate in
+  gsap.set(t, {autoAlpha:0, y:-20, scale:.96});
+  gsap.to(t,  {autoAlpha:1, y:0, scale:1, duration:.5, ease:'back.out(1.5)'});
+
+  // close fn
+  let timer;
+  function hide() {
+    clearTimeout(timer);
+    gsap.to(t, {autoAlpha:0, y:-14, scale:.97, duration:.28, ease:'power2.in',
+                onComplete:()=>t.remove()});
+  }
+  t.querySelector('.toast-close').addEventListener('click', hide);
+  timer = setTimeout(hide, duration);
+}
+
+// Fire flashed messages from server
+if (window.__flashMessages__ && window.__flashMessages__.length) {
+  window.__flashMessages__.forEach(([cat, msg], i) => {
+    setTimeout(() => showToast(cat, msg), i * 350);
+  });
+  window.__flashMessages__ = [];
+}
+
+// Global helper — call from anywhere: window.toast('success','message')
+window.toast = showToast;
+</script>
+
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

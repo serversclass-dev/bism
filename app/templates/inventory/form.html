@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'تعديل مخزون' if action == 'edit' else 'إضافة للمخزون' }} — BIMS{% endblock %}
+{% block company_name %}BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('inventory.index') }}" style="color:var(--muted);">المخزون</a> /
+  <strong>{{ 'تعديل سجل' if action == 'edit' else 'إضافة للمخزون' }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('inventory.index') }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-x"/></svg>
+  إلغاء
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="reveal-item">
+
+  <section class="page-hero" style="margin-bottom:32px;">
+    <h1>{{ 'تعديل سجل المخزون' if action == 'edit' else 'إضافة للمخزون' }}</h1>
+    <p>{{ 'قم بتحديث بيانات المخزون أدناه' if action == 'edit' else 'أدخل بيانات المنتج المضاف للمخزون' }}</p>
+  </section>
+
+  <form method="POST" style="max-width:680px;" id="invForm">
+
+    <!-- Product & Supplier -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">المنتج والمورد</div>
+
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="product_id">المنتج <span style="color:var(--red);">*</span></label>
+          <select class="form-control" id="product_id" name="product_id" required onchange="fillProductPrice()">
+            <option value="">— اختر المنتج —</option>
+            {% for p in products %}
+            <option value="{{ p.id }}"
+                    data-price="{{ p.purchase_price }}"
+                    {{ 'selected' if item and item.product_id == p.id|string else '' }}>
+              {{ p.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="supplier_id">المورد</label>
+          <select class="form-control" id="supplier_id" name="supplier_id">
+            <option value="">— اختر المورد —</option>
+            {% for s in suppliers %}
+            <option value="{{ s.id }}"
+                    {{ 'selected' if item and item.supplier_id == s.id|string else '' }}>
+              {{ s.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quantities -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">الكميات</div>
+
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="quantity_purchased">الكمية المشتراة <span style="color:var(--red);">*</span></label>
+          <input
+            class="form-control"
+            type="number"
+            id="quantity_purchased"
+            name="quantity_purchased"
+            value="{{ item.quantity_purchased if item else '' }}"
+            placeholder="0"
+            step="0.01"
+            min="0"
+            required
+            oninput="calcRemaining()"
+          />
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="quantity_sold">الكمية المباعة</label>
+          <input
+            class="form-control"
+            type="number"
+            id="quantity_sold"
+            name="quantity_sold"
+            value="{{ item.quantity_sold if item else '0' }}"
+            placeholder="0"
+            step="0.01"
+            min="0"
+            oninput="calcRemaining()"
+          />
+        </div>
+      </div>
+
+      <!-- Remaining display -->
+      <div id="remainingDisplay" style="margin-top:16px; padding:16px; border-radius:6px;
+           background:var(--surface); display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">الكمية المتبقية (محسوبة)</div>
+          <div style="font-size:11px; color:var(--muted);">= الكمية المشتراة − الكمية المباعة</div>
+        </div>
+        <div id="remainingValue" style="font-size:26px; font-weight:700; color:var(--ink);">—</div>
+      </div>
+
+      {% if action == 'edit' %}
+      <div class="form-group" style="margin-top:16px; margin-bottom:0;">
+        <label class="form-label" for="quantity_remaining">تعديل يدوي للمتبقي</label>
+        <input
+          class="form-control"
+          type="number"
+          id="quantity_remaining"
+          name="quantity_remaining"
+          value="{{ item.quantity_remaining if item else '' }}"
+          placeholder="اتركه فارغاً للحساب التلقائي"
+          step="0.01"
+          min="0"
+        />
+        <div style="font-size:11px; color:var(--muted); margin-top:6px;">
+          إذا أدخلت قيمة هنا سيتم استخدامها بدلاً من الحساب التلقائي
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Pricing -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">السعر</div>
+
+      <div class="form-grid-2">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="purchase_price">سعر الشراء للوحدة ({{ currency }})</label>
+          <input
+            class="form-control"
+            type="number"
+            id="purchase_price"
+            name="purchase_price"
+            value="{{ item.purchase_price if item else '' }}"
+            placeholder="0.00"
+            step="0.01"
+            min="0"
+            oninput="calcTotal()"
+          />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">إجمالي قيمة المخزون</label>
+          <div style="min-height:42px; padding:0 13px; border:1px solid var(--line); border-radius:6px;
+                      background:var(--surface); display:flex; align-items:center;
+                      font-size:14px; font-weight:700; color:var(--green);" id="totalValue">
+            — {{ currency }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="card" style="margin-bottom:28px;">
+      <div class="card-title">ملاحظات</div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="notes">ملاحظات</label>
+        <textarea
+          class="form-control"
+          id="notes"
+          name="notes"
+          placeholder="أي ملاحظات خاصة بهذا السجل..."
+          style="min-height:80px;"
+        >{{ item.notes if item else '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; gap:12px; align-items:center;">
+      <button type="submit" class="primary-button" style="min-width:160px;">
+        <svg class="icon small"><use href="#i-check"/></svg>
+        {{ 'حفظ التعديلات' if action == 'edit' else 'إضافة للمخزون' }}
+      </button>
+      <a href="{{ url_for('inventory.index') }}" class="secondary-button">إلغاء</a>
+
+      {% if action == 'edit' and item %}
+      <form method="POST" action="{{ url_for('inventory.delete', id=item.id) }}"
+            onsubmit="return confirm('هل أنت متأكد من حذف هذا السجل؟');"
+            style="margin:0 auto 0 0;">
+        <button type="submit" class="danger-button">
+          <svg class="icon small"><use href="#i-trash"/></svg>
+          حذف السجل
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+  </form>
+</div>
+
+<script>
+function calcRemaining() {
+  const purchased = parseFloat(document.getElementById('quantity_purchased').value) || 0;
+  const sold      = parseFloat(document.getElementById('quantity_sold').value) || 0;
+  const remaining = purchased - sold;
+  const el = document.getElementById('remainingValue');
+  const box = document.getElementById('remainingDisplay');
+  el.textContent = remaining.toLocaleString('ar-DZ', {minimumFractionDigits:1});
+  el.style.color = remaining <= 0 ? 'var(--red)' : remaining < 10 ? 'var(--orange)' : 'var(--green)';
+  box.style.background = remaining <= 0 ? 'rgba(200,77,58,.08)' : remaining < 10 ? 'rgba(216,137,37,.08)' : 'var(--surface)';
+  calcTotal();
+}
+
+function calcTotal() {
+  const purchased = parseFloat(document.getElementById('quantity_purchased').value) || 0;
+  const sold      = parseFloat(document.getElementById('quantity_sold').value) || 0;
+  const remaining = purchased - sold;
+  const price     = parseFloat(document.getElementById('purchase_price').value) || 0;
+  const total     = remaining * price;
+  document.getElementById('totalValue').textContent =
+    total > 0 ? total.toLocaleString('ar-DZ', {minimumFractionDigits:2}) + ' {{ currency }}' : '— {{ currency }}';
+}
+
+function fillProductPrice() {
+  const sel = document.getElementById('product_id');
+  const opt = sel.options[sel.selectedIndex];
+  const price = opt?.dataset?.price;
+  if (price && price !== 'None' && price !== '') {
+    document.getElementById('purchase_price').value = parseFloat(price).toFixed(2);
+    calcTotal();
+  }
+}
+
+// Init
+calcRemaining();
+</script>
+{% endblock %}

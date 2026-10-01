@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+
+{% set is_quote = order_type == 'quote' %}
+
+{% block title %}{{ 'طلب عرض سعر جديد' if is_quote else 'أمر بيع جديد' }} — BIMS{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('orders.index') }}" style="color:var(--muted);">الطلبات</a> /
+  <strong>{{ 'طلب عرض سعر جديد' if is_quote else 'أمر بيع جديد' }}</strong>
+{% endblock %}
+
+{% block top_actions %}
+<a href="{{ url_for('orders.index') }}" class="secondary-button">
+  <svg class="icon small"><use href="#i-x"/></svg>
+  إلغاء
+</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .item-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .item-card:hover { border-color: var(--ink); box-shadow: 0 4px 16px rgba(16,20,24,.07); }
+
+  .item-card-head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    gap: 12px;
+  }
+  .item-num {
+    width: 26px; height: 26px; flex: 0 0 26px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 800;
+  }
+  .item-num.sale  { background: var(--ink);  color: var(--lime); }
+  .item-num.quote { background: var(--blue); color: #fff; }
+
+  .item-card-body { padding: 16px; }
+
+  .source-toggle {
+    display: inline-flex;
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .source-btn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 14px; border: 0; border-radius: 6px;
+    background: transparent; color: var(--muted);
+    font: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all .18s; white-space: nowrap;
+  }
+  .source-btn.active       { background: var(--ink);  color: white; }
+  .source-btn.active.stock { background: var(--blue); color: white; }
+  .source-btn svg { width:15px; height:15px; flex:0 0 15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+  .source-panel         { display: none; }
+  .source-panel.visible { display: block; }
+
+  .stock-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; }
+  .stock-ok    { background:rgba(37,129,88,.1);  color:var(--green); }
+  .stock-low   { background:rgba(216,137,37,.1); color:var(--orange); }
+  .stock-out   { background:rgba(200,77,58,.1);  color:var(--red); }
+
+  .row-total-box {
+    border-radius: 7px; padding: 10px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 14px;
+  }
+  .row-total-box.sale  { background: var(--ink); color: var(--lime); }
+  .row-total-box.quote { background: var(--blue); color: #fff; }
+  .row-total-label { font-size: 10px; color: #6b7470; }
+  .row-total-value { font-size: 18px; font-weight: 800; }
+
+  .add-item-btn {
+    width: 100%; min-height: 52px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    border: 2px dashed var(--line); border-radius: 10px;
+    background: transparent; color: var(--muted);
+    font: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .18s;
+  }
+  .add-item-btn:hover { border-color: var(--ink); color: var(--ink); background: var(--surface); }
+
+  .summary-card {
+    position: sticky; top: 24px;
+    border-radius: 12px;
+    padding: 24px; color: white;
+  }
+  .summary-card.sale  { background: var(--ink); }
+  .summary-card.quote { background: var(--blue); }
+
+  .sum-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 13px;
+  }
+  .sum-row:last-child { border: 0; }
+  .sum-row .lbl { color: rgba(255,255,255,.45); font-size: 12px; }
+  .sum-row .val { font-weight: 700; }
+  .sum-profit { color: var(--lime) !important; }
+  .sum-big    { font-size: 28px !important; font-weight: 800 !important; }
+
+  /* quote mode — hide cost/profit rows */
+  .sale-only { display: flex; }
+  .quote-mode .sale-only { display: none !important; }
+
+  .mini-input {
+    width: 100%; min-height: 40px; padding: 0 11px;
+    border: 1px solid var(--line); border-radius: 7px;
+    background: var(--paper); color: var(--ink);
+    font: inherit; font-size: 13px; transition: border-color .15s;
+  }
+  .mini-input:focus { border-color: var(--ink); outline: none; }
+  select.mini-input { cursor: pointer; }
+
+  .field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .field-label  { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 5px; display: block; }
+
+  /* type banner */
+  .type-banner {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; border-radius: 9px; margin-bottom: 20px;
+    font-size: 13px; font-weight: 600;
+  }
+  .type-banner.sale  { background: rgba(37,129,88,.08); border: 1px solid rgba(37,129,88,.2); color: var(--green); }
+  .type-banner.quote { background: rgba(65,105,225,.08); border: 1px solid rgba(65,105,225,.2); color: var(--blue); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div>
+
+  <!-- PAGE HERO -->
+  <section class="page-hero" style="margin-bottom:20px;">
+    {% if is_quote %}
+      <h1>طلب عرض سعر جديد</h1>
+      <p>إنشاء عرض سعر للعميل — لن يؤثر على المخزون أو الرصيد</p>
+    {% else %}
+      <h1>أمر بيع جديد</h1>
+      <p>أضف المنتجات وحدد مصدرها والعميل لإنشاء أمر البيع</p>
+    {% endif %}
+  </section>
+
+  <!-- TYPE BANNER -->
+  <div class="type-banner {{ 'quote' if is_quote else 'sale' }}">
+    {% if is_quote %}
+      <svg style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+      </svg>
+      طلب عرض سعر — يُرسل للعميل كمرجع فقط، لا يخصم من المخزون ولا يضاف للديون
+    {% else %}
+      <svg style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;" viewBox="0 0 24 24">
+        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+      </svg>
+      أمر بيع حقيقي — سيخصم من المخزون ويضاف لرصيد العميل تلقائياً
+    {% endif %}
+  </div>
+
+  <form method="POST" id="orderForm">
+    <!-- hidden order type -->
+    <input type="hidden" name="order_type" value="{{ order_type }}"/>
+
+    <div style="display:grid; grid-template-columns:1fr 290px; gap:20px; align-items:start;">
+
+      <div>
+        <!-- CLIENT + NOTES -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">بيانات الطلب</div>
+          <div class="form-grid-2">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="client_id">العميل <span style="color:var(--red);">*</span></label>
+              <select class="form-control" id="client_id" name="client_id" required>
+                <option value="">— اختر العميل —</option>
+                {% for c in clients %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="notes">ملاحظات</label>
+              <input class="form-control" type="text" id="notes" name="notes" placeholder="ملاحظات اختيارية..."/>
+            </div>
+          </div>
+        </div>
+
+        <!-- ITEMS HEADER -->
+        <div style="margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <h2 style="margin:0; font-size:17px; font-weight:700;">المنتجات</h2>
+            <p style="margin:3px 0 0; font-size:12px; color:var(--muted);">أضف الأصناف وحدد مصدر كل منتج</p>
+          </div>
+          <div style="font-size:12px; color:var(--muted);" id="itemCountLabel">0 أصناف</div>
+        </div>
+
+        <div id="itemsContainer"></div>
+
+        <button type="button" class="add-item-btn" onclick="addItem()">
+          <svg style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;" viewBox="0 0 24 24">
+            <path d="M12 5v14"/><path d="M5 12h14"/>
+          </svg>
+          إضافة منتج
+        </button>
+
+        <div id="noItemsWarn" style="display:none; margin-top:12px; padding:12px 16px;
+             background:rgba(200,77,58,.08); border:1px solid rgba(200,77,58,.2);
+             border-radius:7px; color:var(--red); font-size:13px;">
+          ⚠ يرجى إضافة منتج واحد على الأقل قبل الحفظ
+        </div>
+
+        <div style="margin-top:20px;">
+          <button type="submit" class="{{ 'primary-button' if not is_quote else 'secondary-button' }}"
+                  style="min-height:50px; min-width:220px; font-size:15px;
+                         {% if is_quote %}background:var(--blue); color:#fff; border-color:var(--blue);{% endif %}">
+            <svg class="icon"><use href="#i-check"/></svg>
+            {{ 'حفظ عرض السعر' if is_quote else 'إنشاء أمر البيع' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- SUMMARY SIDEBAR -->
+      <div class="summary-card {{ 'quote' if is_quote else 'sale' }}" id="summarySidebar"
+           {% if is_quote %}class="summary-card quote quote-mode"{% endif %}>
+        <div style="font-size:11px; color:rgba(255,255,255,.45); font-weight:700; margin-bottom:16px; letter-spacing:.05em;">
+          {{ 'ملخص عرض السعر' if is_quote else 'ملخص أمر البيع' }}
+        </div>
+
+        <!-- type chip -->
+        <div style="margin-bottom:14px; padding:7px 11px; border-radius:6px;
+                    background:rgba(255,255,255,.08); font-size:11px; font-weight:700; color:rgba(255,255,255,.7);">
+          {% if is_quote %}
+            📄 عرض سعر — غير ملزم
+          {% else %}
+            🛒 أمر بيع — حقيقي
+          {% endif %}
+        </div>
+
+        <div class="sum-row"><span class="lbl">عدد الأصناف</span><span class="val" id="sItems">0</span></div>
+        <div class="sum-row"><span class="lbl">إجمالي الكمية</span><span class="val" id="sQty">0</span></div>
+        <div class="sum-row sale-only {% if is_quote %}quote-mode{% endif %}">
+          <span class="lbl">إجمالي التكلفة</span><span class="val" id="sCost">0.00</span>
+        </div>
+        <div class="sum-row"><span class="lbl">إجمالي البيع</span><span class="val" id="sSell">0.00</span></div>
+        <div class="sum-row sale-only {% if is_quote %}quote-mode{% endif %}" style="padding-top:14px;">
+          <span class="lbl" style="color:rgba(255,255,255,.7);">الربح الصافي</span>
+          <span class="val sum-profit sum-big" id="sProfit">0.00</span>
+        </div>
+
+        {% if not is_quote %}
+        <div style="margin-top:14px; height:4px; background:#1e2a30; border-radius:2px; overflow:hidden;">
+          <div id="sMarginBar" style="height:100%; width:0%; background:var(--lime); border-radius:2px; transition:.4s;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:6px;">
+          <span style="font-size:10px; color:#6b7470;">هامش الربح</span>
+          <span style="font-size:11px; color:var(--lime); font-weight:700;" id="sMarginPct">0%</span>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<script>
+const PRODUCTS   = {{ products  | tojson }};
+const SUPPLIERS  = {{ suppliers | tojson }};
+const INVENTORY  = {{ inventory | tojson }};
+const CUR        = '{{ currency }}';
+const IS_QUOTE   = {{ 'true' if is_quote else 'false' }};
+
+let rowIdx = 0;
+
+function getStockInfo(productId) {
+  const inv = INVENTORY.find(i => i.product_id == productId);
+  if (!inv) return null;
+  return { remaining: parseFloat(inv.quantity_remaining || 0), price: parseFloat(inv.purchase_price || 0), id: inv.id };
+}
+
+function addItem() {
+  rowIdx++;
+  const idx = rowIdx;
+  const numClass = IS_QUOTE ? 'quote' : 'sale';
+  const totalBoxClass = IS_QUOTE ? 'quote' : 'sale';
+
+  const prodOpts = PRODUCTS.map(p =>
+    `<option value="${p.id}"
+       data-buy="${p.default_purchase_price || 0}"
+       data-sell="${p.default_sell_price || 0}"
+       data-supplier="${p.supplier_id || ''}"
+     >${p.name}</option>`
+  ).join('');
+
+  const supOpts = SUPPLIERS.map(s =>
+    `<option value="${s.id}">${s.name}</option>`
+  ).join('');
+
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  card.id = `item-${idx}`;
+  card.innerHTML = `
+    <div class="item-card-head">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="item-num ${numClass}">${idx}</div>
+        <select name="product_id" class="mini-input" style="max-width:260px;"
+                onchange="onProductChange(${idx})" required>
+          <option value="">— اختر المنتج —</option>
+          ${prodOpts}
+        </select>
+        <div id="stockBadge-${idx}"></div>
+      </div>
+      <button type="button" onclick="removeItem(${idx})"
+        style="width:32px;height:32px;border-radius:6px;border:1px solid rgba(200,77,58,.3);
+               background:transparent;color:var(--red);font-size:18px;line-height:1;
+               display:grid;place-items:center;cursor:pointer;flex:0 0 32px;">×</button>
+    </div>
+
+    <div class="item-card-body">
+
+      <!-- SOURCE TOGGLE -->
+      <div style="margin-bottom:16px;">
+        <div class="field-label">مصدر المنتج</div>
+        <div class="source-toggle">
+          <button type="button" class="source-btn active" id="btnSup-${idx}"
+                  onclick="setSource(${idx}, 'supplier')">
+            <svg viewBox="0 0 24 24"><path d="M1 3h13v13H1z"/><path d="M14 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            من مورد
+          </button>
+          <button type="button" class="source-btn stock" id="btnStk-${idx}"
+                  onclick="setSource(${idx}, 'stock')">
+            <svg viewBox="0 0 24 24"><path d="M22 20v-9L12 3 2 11v9h20z"/><path d="M2 11h20"/><path d="M9 20v-5h6v5"/></svg>
+            من المخزون
+          </button>
+        </div>
+        <input type="hidden" name="source" id="source-${idx}" value="supplier"/>
+      </div>
+
+      <!-- SUPPLIER PANEL -->
+      <div class="source-panel visible" id="panelSup-${idx}" style="margin-bottom:14px;">
+        <label class="field-label">المورد</label>
+        <select name="supplier_id" class="mini-input" id="sup-${idx}">
+          <option value="">— اختر المورد —</option>
+          ${supOpts}
+        </select>
+      </div>
+
+      <!-- STOCK PANEL -->
+      <div class="source-panel" id="panelStk-${idx}" style="margin-bottom:14px;">
+        <div style="padding:12px 14px; border-radius:7px; background:rgba(65,105,225,.06);
+                    border:1px solid rgba(65,105,225,.15);">
+          <div style="font-size:11px; color:var(--blue); font-weight:700; margin-bottom:4px;">
+            ${IS_QUOTE ? '📄 عرض سعر — لن يخصم من المخزون' : '📦 سيتم الخصم تلقائياً من المخزون'}
+          </div>
+          <div id="stockInfo-${idx}" style="font-size:12px; color:var(--muted);">
+            اختر المنتج أولاً لعرض الكمية المتاحة
+          </div>
+        </div>
+      </div>
+
+      <!-- FIELDS -->
+      <div class="field-grid-3" style="margin-bottom:14px;">
+        <div>
+          <label class="field-label">الكمية <span style="color:var(--red);">*</span></label>
+          <input type="number" name="quantity" class="mini-input" id="qty-${idx}"
+                 placeholder="0" min="0.01" step="0.01" value="1"
+                 oninput="recalcRow(${idx})" required/>
+        </div>
+        <div ${IS_QUOTE ? 'style="display:none;"' : ''}>
+          <label class="field-label">سعر الشراء</label>
+          <input type="number" name="purchase_price" class="mini-input" id="buy-${idx}"
+                 placeholder="0.00" min="0" step="0.01" value="0"
+                 oninput="recalcRow(${idx})"/>
+        </div>
+        ${IS_QUOTE ? '<input type="hidden" name="purchase_price" id="buy-' + idx + '" value="0"/>' : ''}
+        <div>
+          <label class="field-label">سعر البيع <span style="color:var(--red);">*</span></label>
+          <input type="number" name="sell_price" class="mini-input" id="sell-${idx}"
+                 placeholder="0.00" min="0" step="0.01" value="0"
+                 oninput="recalcRow(${idx})"/>
+        </div>
+      </div>
+
+      <!-- ROW TOTAL -->
+      <div class="row-total-box ${totalBoxClass}">
+        <span class="row-total-label">إجمالي هذا الصنف</span>
+        <span class="row-total-value" id="rowTotal-${idx}">0.00 ${CUR}</span>
+      </div>
+
+    </div>
+  `;
+
+  document.getElementById('itemsContainer').appendChild(card);
+  updateItemCount();
+  updateSummary();
+
+  if (typeof gsap !== 'undefined') {
+    gsap.fromTo(card, {opacity:0, y:12}, {opacity:1, y:0, duration:.3, ease:'power2.out'});
+  }
+}
+
+function removeItem(idx) {
+  const card = document.getElementById(`item-${idx}`);
+  if (typeof gsap !== 'undefined') {
+    gsap.to(card, {opacity:0, y:-8, duration:.22, ease:'power2.in', onComplete:() => {
+      card.remove(); updateItemCount(); updateSummary();
+    }});
+  } else {
+    card.remove(); updateItemCount(); updateSummary();
+  }
+}
+
+function setSource(idx, src) {
+  document.getElementById(`source-${idx}`).value = src;
+  const btnSup = document.getElementById(`btnSup-${idx}`);
+  const btnStk = document.getElementById(`btnStk-${idx}`);
+  const panSup = document.getElementById(`panelSup-${idx}`);
+  const panStk = document.getElementById(`panelStk-${idx}`);
+
+  if (src === 'supplier') {
+    btnSup.classList.add('active');  btnSup.classList.remove('stock');
+    btnStk.classList.remove('active');
+    btnSup.style.background = 'var(--ink)'; btnSup.style.color = 'white';
+    btnStk.style.background = '';           btnStk.style.color = '';
+    panSup.classList.add('visible');
+    panStk.classList.remove('visible');
+  } else {
+    btnStk.classList.add('active');
+    btnSup.classList.remove('active');
+    btnStk.style.background = 'var(--blue)'; btnStk.style.color = 'white';
+    btnSup.style.background = '';            btnSup.style.color = '';
+    panStk.classList.add('visible');
+    panSup.classList.remove('visible');
+  }
+}
+
+function onProductChange(idx) {
+  const sel = document.querySelector(`#item-${idx} select[name="product_id"]`);
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.value) return;
+
+  const buyEl = document.getElementById(`buy-${idx}`);
+  if (buyEl) buyEl.value = parseFloat(opt.dataset.buy || 0).toFixed(2);
+  document.getElementById(`sell-${idx}`).value = parseFloat(opt.dataset.sell || 0).toFixed(2);
+
+  const supSel = document.getElementById(`sup-${idx}`);
+  if (supSel && opt.dataset.supplier) supSel.value = opt.dataset.supplier;
+
+  const stock = getStockInfo(opt.value);
+  const badge = document.getElementById(`stockBadge-${idx}`);
+  const info  = document.getElementById(`stockInfo-${idx}`);
+
+  if (stock) {
+    const r = stock.remaining;
+    if (r <= 0) {
+      badge.innerHTML = `<span class="stock-badge stock-out">نفد المخزون</span>`;
+      info.innerHTML  = `<span style="color:var(--red); font-weight:700;">⚠ الكمية المتاحة: 0 — نفد المخزون</span>`;
+    } else if (r < 10) {
+      badge.innerHTML = `<span class="stock-badge stock-low">متبقي ${r} فقط</span>`;
+      info.innerHTML  = `<span style="color:var(--orange);">⚠ الكمية المتاحة: <strong>${r}</strong> وحدة — منخفض</span>`;
+    } else {
+      badge.innerHTML = `<span class="stock-badge stock-ok">✓ متوفر ${r}</span>`;
+      info.innerHTML  = `<span style="color:var(--green);">✓ الكمية المتاحة: <strong>${r}</strong> وحدة</span>`;
+    }
+  } else {
+    badge.innerHTML = '';
+    info.innerHTML  = '<span style="color:var(--muted);">هذا المنتج غير مسجل في المخزون</span>';
+  }
+
+  recalcRow(idx);
+}
+
+function recalcRow(idx) {
+  const qty  = parseFloat(document.getElementById(`qty-${idx}`)?.value)  || 0;
+  const sell = parseFloat(document.getElementById(`sell-${idx}`)?.value) || 0;
+  const total = qty * sell;
+  const el = document.getElementById(`rowTotal-${idx}`);
+  if (el) el.textContent = total.toLocaleString('en-US',{minimumFractionDigits:2}) + ' ' + CUR;
+  updateSummary();
+}
+
+function updateSummary() {
+  const cards = document.querySelectorAll('#itemsContainer .item-card');
+  let totCost=0, totSell=0, totQty=0;
+
+  cards.forEach(card => {
+    const id   = card.id.split('-')[1];
+    const qty  = parseFloat(document.getElementById(`qty-${id}`)?.value)  || 0;
+    const buy  = parseFloat(document.getElementById(`buy-${id}`)?.value)  || 0;
+    const sell = parseFloat(document.getElementById(`sell-${id}`)?.value) || 0;
+    totQty  += qty;
+    totCost += qty * buy;
+    totSell += qty * sell;
+  });
+
+  const profit = totSell - totCost;
+  const margin = totSell > 0 ? (profit / totSell * 100) : 0;
+  const fmt    = v => v.toLocaleString('en-US',{minimumFractionDigits:2});
+
+  document.getElementById('sItems').textContent  = cards.length;
+  document.getElementById('sQty').textContent    = totQty.toLocaleString('en-US',{minimumFractionDigits:1});
+  const costEl = document.getElementById('sCost');
+  if (costEl) costEl.textContent = fmt(totCost) + ' ' + CUR;
+  document.getElementById('sSell').textContent   = fmt(totSell) + ' ' + CUR;
+  const profEl = document.getElementById('sProfit');
+  if (profEl) { profEl.textContent = fmt(profit) + ' ' + CUR; profEl.style.color = profit >= 0 ? 'var(--lime)' : 'var(--red)'; }
+  const pctEl  = document.getElementById('sMarginPct');
+  if (pctEl)  pctEl.textContent = margin.toFixed(1) + '%';
+  const barEl  = document.getElementById('sMarginBar');
+  if (barEl) { barEl.style.width = Math.min(Math.abs(margin), 100) + '%'; barEl.style.background = profit >= 0 ? 'var(--lime)' : 'var(--red)'; }
+}
+
+function updateItemCount() {
+  const n = document.querySelectorAll('#itemsContainer .item-card').length;
+  document.getElementById('itemCountLabel').textContent = n + ' أصناف';
+  document.querySelectorAll('.item-num').forEach((el, i) => el.textContent = i + 1);
+}
+
+document.getElementById('orderForm').addEventListener('submit', e => {
+  const cards = document.querySelectorAll('#itemsContainer .item-card');
+  const warn  = document.getElementById('noItemsWarn');
+  if (cards.length === 0) {
+    e.preventDefault();
+    warn.style.display = 'block';
+    warn.scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+  warn.style.display = 'none';
+});
+
+// Start with one item
+addItem();
+</script>
+{% endblock %}
